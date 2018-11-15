@@ -12,13 +12,16 @@ const { callCumulusApi } = require('./api');
  * @throws error if response cannot be parsed
  */
 async function callRuleApiFunction(prefix, requestPayload) {
-  const payload = await callCumulusApi({
-    prefix,
-    functionName: 'ApiRulesDefault',
-    payload: requestPayload
-  });
-
   try {
+    const payload = await callCumulusApi({
+      prefix,
+      functionName: 'ApiRulesDefault',
+      payload: requestPayload
+    });
+
+    console.log(`RuleApi received message: ${JSON.stringify(requestPayload)}`);
+    console.log(`RuleApi return message: ${JSON.stringify(payload)}`);
+
     return payload;
   }
   catch (error) {
