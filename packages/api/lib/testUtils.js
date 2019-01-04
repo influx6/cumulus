@@ -129,6 +129,17 @@ function fakeRuleFactory(state = 'DISABLED') {
   return fakeRuleFactoryV2({ state });
 }
 
+function fakePdrFactoryV2(overrides = {}) {
+  return {
+    pdrName: randomString(),
+    collectionId: 'fakeCollection___v1',
+    provider: 'fakeProvider',
+    status: 'completed',
+    createdAt: Date.now(),
+    ...overrides
+  };
+}
+
 /**
  * creates fake pdr records
  *
@@ -136,13 +147,7 @@ function fakeRuleFactory(state = 'DISABLED') {
  * @returns {Object} fake pdr object
  */
 function fakePdrFactory(status = 'completed') {
-  return {
-    pdrName: randomString(),
-    collectionId: 'fakeCollection___v1',
-    provider: 'fakeProvider',
-    status,
-    createdAt: Date.now()
-  };
+  return fakePdrFactoryV2({ status });
 }
 
 /**
@@ -260,6 +265,7 @@ module.exports = {
   fakeGranuleFactory,
   fakeGranuleFactoryV2,
   fakePdrFactory,
+  fakePdrFactoryV2,
   fakeCollectionFactory,
   fakeExecutionFactory,
   fakeRuleFactory,
