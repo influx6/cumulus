@@ -110,7 +110,7 @@ test.serial('GET /token with an invalid code results in an authorization failure
 test.serial('GET /token with a code but no state returns the access token', async (t) => {
   const getAccessTokenResponse = {
     username: 'my-username',
-    accessToken: 'my-access-token',
+    accessToken: randomString(),
     refreshToken: 'my-refresh-token',
     expirationTime: 12345
   };

@@ -20,7 +20,7 @@ if (process.env.DATABASE_URL) {
 }
 else {
   config = {
-    debug: true,
+    // debug: true,
     client: 'mysql',
     connection: {
       host: '127.0.0.1',

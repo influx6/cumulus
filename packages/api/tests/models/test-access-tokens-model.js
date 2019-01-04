@@ -22,21 +22,6 @@ test.after.always(async () => {
   await accessTokenModel.deleteTable();
 });
 
-test('AccessToken model sets the tableName from a param', (t) => {
-  const tableName = randomString();
-  const testAccessTokenModel = new AccessToken({ tableName });
-
-  t.is(testAccessTokenModel.tableName, tableName);
-});
-
-test('AccessToken model sets the table name from the AccessTokensTable environment variable', (t) => {
-  const envTableName = randomString();
-  process.env.AccessTokensTable = envTableName;
-
-  const testAccessTokenModel = new AccessToken();
-  t.is(testAccessTokenModel.tableName, envTableName);
-});
-
 test('create() creates a valid access token record', async (t) => {
   const userRecord = fakeUserFactory();
   const accessTokenData = fakeAccessTokenFactory({ username: userRecord.userName });
