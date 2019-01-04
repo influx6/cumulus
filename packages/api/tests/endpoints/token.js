@@ -26,18 +26,15 @@ let userModel;
 test.before(async () => {
   process.env.TOKEN_SECRET = randomString();
   process.env.AccessTokensTable = randomString();
-  process.env.UsersTable = randomString();
 
   accessTokenModel = new AccessToken();
   await accessTokenModel.createTable();
 
   userModel = new User();
-  await userModel.createTable();
 });
 
 test.after.always(async () => {
   await accessTokenModel.deleteTable();
-  await userModel.deleteTable();
 });
 
 test.serial('A request for anything other that GET /token results in a 404', async (t) => {
