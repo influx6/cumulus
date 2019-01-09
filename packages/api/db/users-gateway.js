@@ -1,6 +1,7 @@
 'use strict';
 
 const pick = require('lodash.pick');
+const { RecordDoesNotExist } = require('../lib/errors');
 
 const USERS_TABLE = 'users';
 
@@ -15,8 +16,12 @@ function filterUserFields(userRecord) {
   return pick(userRecord, fields);
 }
 
-function findByUserName(db, userName) {
-  return db(USERS_TABLE).first().where({ user_name: userName });
+async function findByUserName(db, userName) {
+  const record = await db(USERS_TABLE).first().where({ user_name: userName });
+
+  if (!record) throw new RecordDoesNotExist();
+
+  return record;
 }
 
 async function insert(db, providerRecord) {

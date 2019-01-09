@@ -6,7 +6,6 @@ const {
   buildLambdaProxyResponse,
   getAuthorizationFailureResponse
 } = require('../lib/response');
-const Search = require('../es/search').Search;
 const models = require('../models');
 const {
   InternalServerError,
@@ -15,17 +14,25 @@ const {
 const { deconstructCollectionId } = require('../lib/utils');
 
 /**
- * List all granules for a given collection.
+ * List all granules
  *
- * @param {Object} event - aws lambda event object.
  * @returns {Promise<Object>} a Lambda Proxy response object
  */
-async function list(event) {
-  const result = await (new Search(event, 'granule')).query();
+async function list() {
+  const granuleModelClient = new models.Granule();
+
+  const results = await granuleModelClient.getAll();
 
   return buildLambdaProxyResponse({
     json: true,
-    body: result
+    body: {
+      results,
+      meta: {
+        stack: process.env.stackName,
+        table: 'granule', // deprecated
+        count: results.length
+      }
+    }
   });
 }
 

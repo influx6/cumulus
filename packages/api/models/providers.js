@@ -43,8 +43,6 @@ class Provider extends Model {
 
     const providerRecord = await providersGateway.findById(db, id);
 
-    if (providerRecord === undefined) throw new RecordDoesNotExist();
-
     return buildProviderModel(providerRecord);
   }
 
@@ -57,9 +55,16 @@ class Provider extends Model {
   async exists(id) {
     const { db } = privates.get(this);
 
-    const providerRecord = await providersGateway.findById(db, id);
+    try {
+      await providersGateway.findById(db, id);
 
-    return providerRecord !== undefined;
+      return true;
+    }
+    catch (err) {
+      if (err instanceof RecordDoesNotExist) return false;
+
+      throw err;
+    }
   }
 
   /**

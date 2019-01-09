@@ -2,6 +2,8 @@
 
 const pick = require('lodash.pick');
 
+const { RecordDoesNotExist } = require('../lib/errors');
+
 const ASYNC_OPERATIONS_TABLE = 'async_operations';
 
 function filterAsyncOperationFields(asyncOperationRecord) {
@@ -17,8 +19,12 @@ function filterAsyncOperationFields(asyncOperationRecord) {
   return pick(asyncOperationRecord, fields);
 }
 
-function findById(db, id) {
-  return db(ASYNC_OPERATIONS_TABLE).first().where({ id });
+async function findById(db, id) {
+  const record = await db(ASYNC_OPERATIONS_TABLE).first().where({ id });
+
+  if (!record) throw new RecordDoesNotExist();
+
+  return record;
 }
 
 async function insert(db, asyncOperationRecord) {

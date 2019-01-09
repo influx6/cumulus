@@ -36,8 +36,6 @@ class User extends Model {
 
     const userRecord = await usersGateway.findByUserName(db, userName);
 
-    if (!userRecord) throw new RecordDoesNotExist();
-
     return buildUserModel(userRecord);
   }
 

@@ -1,6 +1,7 @@
 'use strict';
 
 const pick = require('lodash.pick');
+const { RecordDoesNotExist } = require('../lib/errors');
 
 const RULES_TABLE = 'rules';
 
@@ -33,8 +34,12 @@ function find(db, params = {}) {
   return query.select(params.fields);
 }
 
-function findByName(db, name) {
-  return db(RULES_TABLE).first().where({ name });
+async function findByName(db, name) {
+  const record = await db(RULES_TABLE).first().where({ name });
+
+  if (!record) throw new RecordDoesNotExist();
+
+  return record;
 }
 
 function findByCollectionId(db, collectionId) {

@@ -8,8 +8,6 @@ const asyncOperationsGateway = require('../db/async-operations-gateway');
 const knex = require('../db/knex');
 const Model = require('./Model');
 
-const { RecordDoesNotExist } = require('../lib/errors');
-
 function asyncOperationModelToRecord(model) {
   return {
     id: model.id,
@@ -75,8 +73,6 @@ class AsyncOperation extends Model {
     const { db } = privates.get(this);
 
     const record = await asyncOperationsGateway.findById(db, id);
-
-    if (record === undefined) throw new RecordDoesNotExist();
 
     return buildAsyncOperationModel(record);
   }

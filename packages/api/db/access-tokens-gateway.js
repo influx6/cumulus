@@ -2,6 +2,8 @@
 
 const pick = require('lodash.pick');
 
+const { RecordDoesNotExist } = require('../lib/errors');
+
 const ACCESS_TOKENS_TABLE = 'access_tokens';
 
 function filterAccessTokenFields(record) {
@@ -18,8 +20,14 @@ function filterAccessTokenFields(record) {
   return pick(record, fields);
 }
 
-function findByAccessToken(db, accessToken) {
-  return db(ACCESS_TOKENS_TABLE).first().where({ access_token: accessToken });
+async function findByAccessToken(db, accessToken) {
+  const record = await db(ACCESS_TOKENS_TABLE)
+    .first()
+    .where({ access_token: accessToken });
+
+  if (!record) throw new RecordDoesNotExist();
+
+  return record;
 }
 
 async function insert(db, record) {

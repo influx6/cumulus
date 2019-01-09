@@ -1,6 +1,7 @@
 'use strict';
 
 const pick = require('lodash.pick');
+const { RecordDoesNotExist } = require('../lib/errors');
 
 const EXECUTIONS_TABLE = 'executions';
 
@@ -53,8 +54,12 @@ function find(db, params = {}) {
   return query.select(params.fields);
 }
 
-function findByArn(db, arn) {
-  return db(EXECUTIONS_TABLE).first().where({ arn });
+async function findByArn(db, arn) {
+  const record = await db(EXECUTIONS_TABLE).first().where({ arn });
+
+  if (!record) throw new RecordDoesNotExist();
+
+  return record;
 }
 
 async function insert(db, executionRecord) {

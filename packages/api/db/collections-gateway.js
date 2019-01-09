@@ -1,6 +1,7 @@
 'use strict';
 
 const pick = require('lodash.pick');
+const { RecordDoesNotExist } = require('../lib/errors');
 
 const COLLECTIONS_TABLE = 'collections';
 const COLLECTION_FILE_DEFINITIONS_TABLE = 'collection_file_definitions';
@@ -39,12 +40,20 @@ function filterCollectionFileDefinitionFields(fileDefinitionRecord) {
   return pick(fileDefinitionRecord, fields);
 }
 
-function findById(db, id) {
-  return db(COLLECTIONS_TABLE).first().where({ id });
+async function findById(db, id) {
+  const record = await db(COLLECTIONS_TABLE).first().where({ id });
+
+  if (!record) throw new RecordDoesNotExist();
+
+  return record;
 }
 
-function findByNameAndVersion(db, name, version) {
-  return db(COLLECTIONS_TABLE).first().where({ name, version });
+async function findByNameAndVersion(db, name, version) {
+  const record = await db(COLLECTIONS_TABLE).first().where({ name, version });
+
+  if (!record) throw new RecordDoesNotExist();
+
+  return record;
 }
 
 async function insert(db, collectionRecord) {

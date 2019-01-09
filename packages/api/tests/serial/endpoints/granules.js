@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const pMap = require('p-map');
 const path = require('path');
 const sinon = require('sinon');
 const test = require('ava');
@@ -15,7 +16,6 @@ const assertions = require('../../../lib/assertions');
 const models = require('../../../models');
 const bootstrap = require('../../../lambdas/bootstrap');
 const handleRequest = require('../../../endpoints/granules');
-const indexer = require('../../../es/indexer');
 const {
   fakeAccessTokenFactory,
   fakeCollectionFactory,
@@ -117,9 +117,7 @@ test.beforeEach(async (t) => {
     })
   ];
 
-  await Promise.all(t.context.fakeGranules.map((granule) =>
-    granuleModel.create(granule)
-      .then((record) => indexer.indexGranule(esClient, record, esIndex))));
+  await pMap(t.context.fakeGranules, (granule) => granuleModel.create(granule));
 });
 
 test.after.always(async () => {
@@ -132,6 +130,12 @@ test.after.always(async () => {
 });
 
 test.serial('default returns list of granules', async (t) => {
+  const { fakeGranules } = t.context;
+
+  await granuleModel.deleteAll();
+
+  await pMap(fakeGranules, (granule) => granuleModel.create(granule));
+
   const event = {
     httpMethod: 'GET',
     headers: t.context.authHeaders
@@ -519,6 +523,8 @@ test.serial('DELETE deleting an existing granule that is published will fail', a
 });
 
 test.serial('DELETE deleting an existing unpublished granule', async (t) => {
+  const { testCollection } = t.context;
+
   const buckets = {
     protected: {
       name: randomString(),
@@ -529,23 +535,31 @@ test.serial('DELETE deleting an existing unpublished granule', async (t) => {
       type: 'public'
     }
   };
-  const newGranule = fakeGranuleFactoryV2({ status: 'failed' });
-  newGranule.published = false;
+  const newGranule = fakeGranuleFactoryV2({
+    collectionId: `${testCollection.name}___${testCollection.version}`,
+    published: false,
+    status: 'failed'
+  });
+
+  const pathPrefix = randomString();
   newGranule.files = [
     {
       bucket: buckets.protected.name,
       name: `${newGranule.granuleId}.hdf`,
-      filename: `s3://${buckets.protected.name}/${randomString()}/${newGranule.granuleId}.hdf`
+      filepath: `${pathPrefix}/${newGranule.granuleId}.hdf`,
+      filename: `s3://${buckets.protected.name}/${pathPrefix}/${newGranule.granuleId}.hdf`
     },
     {
       bucket: buckets.protected.name,
       name: `${newGranule.granuleId}.cmr.xml`,
-      filename: `s3://${buckets.protected.name}/${randomString()}/${newGranule.granuleId}.cmr.xml`
+      filepath: `${pathPrefix}/${newGranule.granuleId}.cmr.xml`,
+      filename: `s3://${buckets.protected.name}/${pathPrefix}/${newGranule.granuleId}.cmr.xml`
     },
     {
       bucket: buckets.public.name,
       name: `${newGranule.granuleId}.jpg`,
-      filename: `s3://${buckets.public.name}/${randomString()}/${newGranule.granuleId}.jpg`
+      filepath: `${pathPrefix}/${newGranule.granuleId}.jpg`,
+      filename: `s3://${buckets.public.name}/${pathPrefix}/${newGranule.granuleId}.jpg`
     }
   ];
 
@@ -597,6 +611,8 @@ test.serial('DELETE deleting an existing unpublished granule', async (t) => {
 });
 
 test.serial('move a granule with no .cmr.xml file', async (t) => {
+  const { testCollection } = t.context;
+
   const bucket = process.env.internal;
   const secondBucket = randomString();
   const thirdBucket = randomString();
@@ -604,7 +620,9 @@ test.serial('move a granule with no .cmr.xml file', async (t) => {
   await runTestUsingBuckets(
     [secondBucket, thirdBucket],
     async () => {
-      const newGranule = fakeGranuleFactoryV2();
+      const newGranule = fakeGranuleFactoryV2({
+        collectionId: `${testCollection.name}___${testCollection.version}`
+      });
 
       newGranule.files = [
         {
@@ -616,6 +634,7 @@ test.serial('move a granule with no .cmr.xml file', async (t) => {
         {
           bucket,
           name: `${newGranule.granuleId}.md`,
+          filepath: `${process.env.stackName}/original_filepath/${newGranule.granuleId}.md`,
           filename: `s3://${bucket}/${process.env.stackName}/original_filepath/${newGranule.granuleId}.md`
         },
         {
@@ -703,6 +722,8 @@ test.serial('move a granule with no .cmr.xml file', async (t) => {
 });
 
 test.serial('move a file and update metadata', async (t) => {
+  const { testCollection } = t.context;
+
   const bucket = process.env.internal;
   process.env.bucket = bucket;
   const buckets = {
@@ -724,8 +745,10 @@ test.serial('move a file and update metadata', async (t) => {
   });
 
   await createBucket(buckets.public.name);
-  const newGranule = fakeGranuleFactoryV2();
-  const metadata = fs.createReadStream(path.resolve(__dirname, '../../data/meta.xml'));
+
+  const newGranule = fakeGranuleFactoryV2({
+    collectionId: `${testCollection.name}___${testCollection.version}`
+  });
 
   newGranule.files = [
     {
@@ -743,6 +766,8 @@ test.serial('move a file and update metadata', async (t) => {
   ];
 
   await granuleModel.create(newGranule);
+
+  const metadata = fs.createReadStream(path.resolve(__dirname, '../../data/meta.xml'));
 
   await Promise.all(newGranule.files.map((file) => {
     if (file.name === `${newGranule.granuleId}.txt`) {
@@ -820,8 +845,6 @@ test('PUT with action move returns failure if one granule file exists', async (t
 
   const granule = t.context.fakeGranules[0];
 
-  await granuleModel.create(granule);
-
   const body = {
     action: 'move',
     destinations: [{
@@ -860,8 +883,6 @@ test('PUT with action move returns failure if more than one granule file exists'
   const moveGranuleStub = sinon.stub(models.Granule.prototype, 'move').resolves({});
 
   const granule = t.context.fakeGranules[0];
-
-  await granuleModel.create(granule);
 
   const body = {
     action: 'move',

@@ -135,8 +135,6 @@ class Rule extends Model {
 
     const ruleRecord = await rulesGateway.findByName(db, name);
 
-    if (ruleRecord === undefined) throw new RecordDoesNotExist();
-
     const collectionRecord = await collectionsGateway.findById(db, ruleRecord.collection_id);
 
     return buildRuleModel(ruleRecord, collectionRecord);

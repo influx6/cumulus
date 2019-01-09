@@ -83,8 +83,6 @@ class Pdr extends Model {
 
     const pdrRecord = await pdrsGateway.findByPdrName(db, pdrName);
 
-    if (pdrRecord === undefined) throw new RecordDoesNotExist();
-
     const collectionRecord = await collectionsGateway.findById(
       db,
       pdrRecord.collection_id

@@ -3,6 +3,7 @@
 const clonedeep = require('lodash.clonedeep');
 const get = require('lodash.get');
 const path = require('path');
+const pMap = require('p-map');
 const uniqBy = require('lodash.uniqby');
 
 const aws = require('@cumulus/ingest/aws');
@@ -18,7 +19,14 @@ const {
 const { constructCollectionId } = require('@cumulus/common');
 const { describeExecution } = require('@cumulus/common/step-functions');
 
-const Manager = require('./base');
+const knex = require('../db/knex');
+const Model = require('./Model');
+const collectionsGateway = require('../db/collections-gateway');
+const filesGateway = require('../db/files-gateway');
+const granulesGateway = require('../db/granules-gateway');
+const pdrsGateway = require('../db/pdrs-gateway');
+
+const { RecordDoesNotExist } = require('../lib/errors');
 
 const {
   parseException,
@@ -27,15 +35,275 @@ const {
   extractDate
 } = require('../lib/utils');
 const Rule = require('./rules');
-const granuleSchema = require('./schemas').granule;
 
-class Granule extends Manager {
+function fileRecordToModel(fileRecord) {
+  return {
+    bucket: fileRecord.bucket,
+    filename: fileRecord.filename,
+    filepath: fileRecord.key,
+    fileSize: fileRecord.file_size,
+    name: fileRecord.name
+  };
+}
+
+function buildFileRecords(granuleDbId, fileModels = []) {
+  return fileModels.map((fileModel) => ({
+    granule_id: granuleDbId,
+    file_size: fileModel.fileSize,
+    filename: fileModel.filename,
+    bucket: fileModel.bucket,
+    key: fileModel.filepath,
+    name: fileModel.name
+  }));
+}
+
+function granuleModelToRecord(granuleModel, collectionId, pdrId) {
+  const record = {
+    beginning_date_time: granuleModel.beginningDateTime,
+    cmr_link: granuleModel.cmrLink,
+    collection_id: collectionId,
+    created_at: granuleModel.createdAt,
+    duration: granuleModel.duration,
+    ending_date_time: granuleModel.endingDateTime,
+    execution_url: granuleModel.execution,
+    granule_id: granuleModel.granuleId,
+    last_update_date_time: granuleModel.lastUpdateDateTime,
+    pdr_id: pdrId,
+    processing_end_date_time: granuleModel.processingEndDateTime,
+    processing_start_date_time: granuleModel.processingStartDateTime,
+    product_volume: granuleModel.productVolume,
+    production_date_time: granuleModel.productionDateTime,
+    published: granuleModel.published,
+    status: granuleModel.status,
+    time_to_archive: granuleModel.timeToArchive,
+    time_to_preprocess: granuleModel.timeToPreprocess,
+    updated_at: granuleModel.updatedAt
+  };
+
+  if (granuleModel.error) {
+    record.error = JSON.stringify(granuleModel.error);
+  }
+
+  return record;
+}
+
+function buildGranuleModel(params = {}) {
+  const {
+    granuleRecord,
+    collectionName,
+    collectionVersion,
+    pdrName,
+    fileModels
+  } = params;
+
+  const granuleModel = {
+    pdrName,
+    beginningDateTime: granuleRecord.beginning_date_time,
+    cmrLink: granuleRecord.cmr_link,
+    collectionId: `${collectionName}___${collectionVersion}`,
+    createdAt: granuleRecord.created_at,
+    duration: granuleRecord.duration,
+    endingDateTime: granuleRecord.ending_date_time,
+    execution: granuleRecord.execution_url,
+    files: fileModels,
+    granuleId: granuleRecord.granule_id,
+    lastUpdatedDateTime: granuleRecord.last_updated_date_time,
+    processingEndDateTime: granuleRecord.processing_end_date_time,
+    processingStartDateTime: granuleRecord.processing_start_date_time,
+    productVolume: granuleRecord.product_volume,
+    productionDateTime: granuleRecord.production_date_time,
+    published: granuleRecord.published,
+    status: granuleRecord.status,
+    timeToArchive: granuleRecord.time_to_archive,
+    timeToPreprocess: granuleRecord.time_to_preprocess,
+    updatedAt: granuleRecord.updated_at
+  };
+
+  if (granuleRecord.error) {
+    granuleModel.error = JSON.parse(granuleRecord.error);
+  }
+
+  return granuleModel;
+}
+
+async function insertGranuleModel(db, granuleModel) {
+  const [
+    collectionName,
+    collectionVersion
+  ] = granuleModel.collectionId.split('___');
+
+  const collectionRecord = await collectionsGateway.findByNameAndVersion(
+    db,
+    collectionName,
+    collectionVersion
+  );
+
+  let pdrId = null;
+  if (granuleModel.pdrName) {
+    const pdrRecord = await pdrsGateway.findByPdrName(
+      db,
+      granuleModel.pdrName
+    );
+
+    pdrId = pdrRecord.id;
+  }
+
+  const granuleRecord = granuleModelToRecord(
+    granuleModel,
+    collectionRecord.id,
+    pdrId
+  );
+
+  return db.transaction(async (trx) => {
+    const granuleDbId = await granulesGateway.insert(trx, granuleRecord);
+
+    const fileRecords = buildFileRecords(granuleDbId, granuleModel.files);
+
+    await filesGateway.insertMany(trx, fileRecords);
+
+    return granuleDbId;
+  });
+}
+
+async function updateGranuleModel(db, updatedModel) {
+  const granuleRecord = await granulesGateway.findByGranuleId(
+    db,
+    updatedModel.granuleId
+  );
+
+  let collectionId;
+  if (updatedModel.collectionId) {
+    const [
+      collectionName,
+      collectionVersion
+    ] = updatedModel.collectionId.split('___');
+
+    const collectionRecord = await collectionsGateway.findByNameAndVersion(
+      db,
+      collectionName,
+      collectionVersion
+    );
+
+    collectionId = collectionRecord.id;
+  }
+
+  let pdrId;
+  if (updatedModel.pdrName) {
+    const pdrRecord = await pdrsGateway.findByPdrName(db, updatedModel.pdrName);
+    pdrId = pdrRecord.id;
+  }
+
+  return db.transaction(async (trx) => {
+    await filesGateway.deleteByGranuleDbId(trx, granuleRecord.id);
+    const fileRecords = buildFileRecords(granuleRecord.id, updatedModel.files);
+    await filesGateway.insertMany(trx, fileRecords);
+
+    const updatedGranuleRecord = granuleModelToRecord(updatedModel, collectionId, pdrId);
+    await granulesGateway.update(trx, granuleRecord.id, updatedGranuleRecord);
+  });
+}
+
+const privates = new WeakMap();
+
+class Granule extends Model {
   constructor() {
-    super({
-      tableName: process.env.GranulesTable,
-      tableHash: { name: 'granuleId', type: 'S' },
-      schema: granuleSchema
+    super();
+
+    privates.set(this, { db: knex() });
+  }
+
+  async get({ granuleId }) {
+    const { db } = privates.get(this);
+
+    const granuleRecord = await granulesGateway.findByGranuleId(db, granuleId);
+
+    const collectionRecord = await collectionsGateway.findById(
+      db,
+      granuleRecord.collection_id
+    );
+
+    let pdrName;
+    if (granuleRecord.pdr_id) {
+      const pdrRecord = await pdrsGateway.findById(db, granuleRecord.pdr_id);
+      pdrName = pdrRecord.pdr_name;
+    }
+
+    const fileRecords = await filesGateway.findByGranuleId(
+      db,
+      granuleRecord.id
+    );
+
+    const fileModels = fileRecords.map(fileRecordToModel);
+
+    const granuleModel = buildGranuleModel({
+      granuleRecord,
+      collectionName: collectionRecord.name,
+      collectionVersion: collectionRecord.version,
+      pdrName,
+      fileModels
     });
+
+    return granuleModel;
+  }
+
+  async getAll() {
+    const { db } = privates.get(this);
+
+    const granuleRecords = await granulesGateway.find(db);
+
+    return pMap(
+      granuleRecords,
+      (granuleRecord) => this.get({ granuleId: granuleRecord.granule_id })
+    );
+  }
+
+  async create(granuleModel) {
+    const { db } = privates.get(this);
+
+    await insertGranuleModel(db, granuleModel);
+
+    return this.get({ granuleId: granuleModel.granuleId });
+  }
+
+  async update({ granuleId }, updates = {}, fieldsToDelete = []) {
+    const { db } = privates.get(this);
+
+    const deletions = {};
+    fieldsToDelete.forEach((f) => {
+      deletions[f] = null;
+    });
+
+    const updatedModel = {
+      ...updates,
+      ...deletions,
+      granuleId
+    };
+
+    await updateGranuleModel(db, updatedModel);
+
+    return this.get({ granuleId });
+  }
+
+  async delete({ granuleId }) {
+    const { db } = privates.get(this);
+
+    const granuleRecord = await granulesGateway.findByGranuleId(db, granuleId);
+
+    return db.transaction(async (trx) => {
+      await filesGateway.deleteByGranuleDbId(trx, granuleRecord.id);
+      await granulesGateway.delete(trx, granuleRecord.id);
+    });
+  }
+
+  async deleteAll() {
+    const { db } = privates.get(this);
+
+    const granuleRecords = await granulesGateway.find(db);
+
+    return pMap(
+      granuleRecords,
+      (granuleRecord) => this.delete({ granuleId: granuleRecord.granule_id })
+    );
   }
 
   /**
@@ -89,16 +357,18 @@ class Granule extends Manager {
   /**
    * start the re-ingest of a given granule object
    *
-   * @param {Object} granule - the granule object
+   * @param {Object} granuleModel - the granule object
    * @returns {Promise<undefined>} - undefined
    */
-  async reingest(granule) {
-    const executionArn = path.basename(granule.execution);
+  async reingest(granuleModel) {
+    const { db } = privates.get(this);
+
+    const executionArn = path.basename(granuleModel.execution);
 
     const executionDescription = await describeExecution(executionArn);
     const originalMessage = JSON.parse(executionDescription.input);
 
-    const { name, version } = deconstructCollectionId(granule.collectionId);
+    const { name, version } = deconstructCollectionId(granuleModel.collectionId);
 
     const lambdaPayload = await Rule.buildPayload({
       workflow: originalMessage.meta.workflow_name,
@@ -110,14 +380,19 @@ class Granule extends Manager {
         }
       },
       payload: originalMessage.payload,
-      provider: granule.provider,
+      provider: granuleModel.provider,
       collection: {
         name,
         version
       }
     });
 
-    await this.updateStatus({ granuleId: granule.granuleId }, 'running');
+    const granuleRecord = await granulesGateway.findByGranuleId(
+      db,
+      granuleModel.granuleId
+    );
+
+    await granulesGateway.update(db, granuleRecord.id, { status: 'running' });
 
     return aws.invoke(process.env.invoke, lambdaPayload);
   }
@@ -125,26 +400,33 @@ class Granule extends Manager {
   /**
    * apply a workflow to a given granule object
    *
-   * @param {Object} g - the granule object
+   * @param {Object} granuleModel - the granule object
    * @param {string} workflow - the workflow name
    * @returns {Promise<undefined>} undefined
    */
-  async applyWorkflow(g, workflow) {
-    const { name, version } = deconstructCollectionId(g.collectionId);
+  async applyWorkflow(granuleModel, workflow) {
+    const { db } = privates.get(this);
+
+    const { name, version } = deconstructCollectionId(granuleModel.collectionId);
 
     const lambdaPayload = await Rule.buildPayload({
       workflow,
       payload: {
-        granules: [g]
+        granules: [granuleModel]
       },
-      provider: g.provider,
+      provider: granuleModel.provider,
       collection: {
         name,
         version
       }
     });
 
-    await this.updateStatus({ granuleId: g.granuleId }, 'running');
+    const granuleRecord = await granulesGateway.findByGranuleId(
+      db,
+      granuleModel.granuleId
+    );
+
+    await granulesGateway.update(db, granuleRecord.id, { status: 'running' });
 
     await aws.invoke(process.env.invoke, lambdaPayload);
   }

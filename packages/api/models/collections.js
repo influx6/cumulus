@@ -160,8 +160,6 @@ class Collection extends Model {
       version
     );
 
-    if (collectionRecord === undefined) throw new RecordDoesNotExist();
-
     const fileDefinitionRecords = await collectionsGateway.getFileDefinitions(
       db,
       collectionRecord.id
@@ -176,13 +174,20 @@ class Collection extends Model {
   async exists(name, version) {
     const { db } = privates.get(this);
 
-    const collectionRecord = await collectionsGateway.findByNameAndVersion(
-      db,
-      name,
-      version
-    );
+    try {
+      await collectionsGateway.findByNameAndVersion(
+        db,
+        name,
+        version
+      );
 
-    return collectionRecord !== undefined;
+      return true;
+    }
+    catch (err) {
+      if (err instanceof RecordDoesNotExist) return false;
+
+      throw err;
+    }
   }
 
   async create(item) {

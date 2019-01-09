@@ -42,20 +42,22 @@ class AccessToken extends Model {
 
     const accessTokenRecord = await accessTokensGateway.findByAccessToken(db, accessToken);
 
-    if (!accessTokenRecord) throw new RecordDoesNotExist();
-
     return buildAccessTokenModel(accessTokenRecord);
   }
 
   async exists({ accessToken }) {
     const { db } = privates.get(this);
 
-    const accessTokenRecord = await accessTokensGateway.findByAccessToken(
-      db,
-      accessToken
-    );
+    try {
+      await accessTokensGateway.findByAccessToken(db, accessToken);
 
-    return accessTokenRecord !== undefined;
+      return true;
+    }
+    catch (err) {
+      if (err instanceof RecordDoesNotExist) return false;
+
+      throw err;
+    }
   }
 
   async create(accessTokenModel) {

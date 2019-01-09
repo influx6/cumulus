@@ -7,8 +7,6 @@ const { cliUtils } = require('@cumulus/common');
 const { lambda } = require('@cumulus/common/aws');
 const pckg = require('../package.json');
 const es = require('./es');
-const backup = require('./backup');
-const restore = require('./restore');
 const { defaultIndexAlias } = require('../es/search');
 
 program.version(pckg.version);
@@ -99,43 +97,6 @@ program
       FunctionName: `${cmd.stack}-executeMigrations`,
       Payload: `{ "migrations": ["${cmd.migrationVersion}"] }`
     }).promise().then(console.log).catch(console.error);
-  });
-
-program
-  .command('backup')
-  .option('--table <table>', 'AWS DynamoDB table name')
-  .option('--region <region>', 'AWS region name (default: us-east-1)')
-  .option('--directory <directory>', 'The directory to save the backups to.'
-    + ' Defaults to backups in the current directory')
-  .description('Backup a given AWS folder to the current folder')
-  .parse(process.argv)
-  .action((cmd) => {
-    if (!cmd.table) {
-      throw new Error('table name is missing');
-    }
-
-    backup(cmd.table, cmd.region, cmd.directory).then(console.log).catch(console.error);
-  });
-
-program
-  .command('restore <file>')
-  .option('--table <table>', 'AWS DynamoDB table name')
-  .option('--region <region>', 'AWS region name (default: us-east-1)')
-  .option('--concurrency <concurrency>', 'Number of concurrent calls to DynamoDB. Default is 2')
-  .description('Backup a given AWS folder to the current folder')
-  .parse(process.argv)
-  .action((file, cmd) => {
-    if (!cmd.table) {
-      throw new Error('table name is missing');
-    }
-
-    const concurrency = !cmd.concurrency ? 2 : parseInt(cmd.concurrency, 10);
-
-    if (cmd.region) {
-      process.env.AWS_DEFAULT_REGION = cmd.region;
-    }
-
-    restore(file, cmd.table, concurrency).then(console.log).catch(console.error);
   });
 
 program

@@ -88,8 +88,6 @@ class Execution extends Model {
 
     const executionRecord = await executionsGateway.findByArn(db, arn);
 
-    if (executionRecord === undefined) throw new RecordDoesNotExist();
-
     return buildExecutionModel(executionRecord);
   }
 
