@@ -19,8 +19,8 @@ exports.up = async (knex) => {
     (table) => {
       table.string('id').primary().notNull();
 
-      table.bigInteger('created_at').notNullable();
-      table.bigInteger('updated_at').notNullable();
+      table.bigInteger('createdAt').notNullable();
+      table.bigInteger('updatedAt').notNullable();
 
       table.integer('globalConnectionLimit').notNull();
       table.text('host').notNull();

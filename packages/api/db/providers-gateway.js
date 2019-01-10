@@ -7,7 +7,7 @@ const PROVIDERS_TABLE = 'providers';
 
 function filterProviderFields(providerRecord) {
   const fields = [
-    'created_at',
+    'createdAt',
     'encrypted',
     'globalConnectionLimit',
     'host',
@@ -16,7 +16,7 @@ function filterProviderFields(providerRecord) {
     'password',
     'port',
     'protocol',
-    'updated_at',
+    'updatedAt',
     'username'
   ];
 
@@ -37,8 +37,8 @@ async function insert(db, providerRecord) {
   const [providerId] = await db(PROVIDERS_TABLE)
     .insert({
       ...filterProviderFields(providerRecord),
-      created_at: now,
-      updated_at: now
+      createdAt: now,
+      updatedAt: now
     });
 
   return providerId;
@@ -50,8 +50,8 @@ async function update(db, providerId, providerRecord) {
     .update({
       ...filterProviderFields(providerRecord),
       id: undefined,
-      created_at: undefined,
-      updated_at: Date.now()
+      createdAt: undefined,
+      updatedAt: Date.now()
     });
 }
 
