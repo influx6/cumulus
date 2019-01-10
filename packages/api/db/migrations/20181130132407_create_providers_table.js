@@ -1,18 +1,16 @@
 'use strict';
 
 const { DynamoDbScanQueue } = require('@cumulus/common/aws');
+const { filterProviderFields } = require('../providers-gateway');
 
-function dynamoRecordToPgRecord(dynamoRecord) {
-  const fields = ['id', 'port', 'host', 'username', 'password', 'encrypted', 'protocol', 'globalConnectionLimit'];
-  const pgRecord = {};
-  fields.forEach((field) => {
-    if (dynamoRecord[field]) {
-      // TODO Update to use common camel case library
-      const updateField = field.replace(/([A-Z])/g, (v) => `_${v.toLowerCase()}`).replace(/^_/, '');
-      pgRecord[updateField] = dynamoRecord[field][Object.keys(dynamoRecord[field])[0]];
-    }
-  });
-  return pgRecord;
+function dynamoRecordToDbRecord(dynamoRecord) {
+  const dbRecord = filterProviderFields(dynamoRecord);
+
+  if (dynamoRecord.meta) {
+    dbRecord.meta = JSON.stringify(dynamoRecord.meta);
+  }
+
+  return dbRecord;
 }
 
 exports.up = async (knex) => {
@@ -24,7 +22,7 @@ exports.up = async (knex) => {
       table.bigInteger('created_at').notNullable();
       table.bigInteger('updated_at').notNullable();
 
-      table.integer('global_connection_limit').notNull();
+      table.integer('globalConnectionLimit').notNull();
       table.text('host').notNull();
       table.enu(
         'protocol',
@@ -49,8 +47,10 @@ exports.up = async (knex) => {
       dynamoRecords.push(await dynamoDbScanQueue.shift());
     }
     /* eslint-enable no-await-in-loop */
-    const pgRecords = dynamoRecords.map(dynamoRecordToPgRecord);
-    await knex('providers').insert(pgRecords);
+
+    const records = dynamoRecords.map(dynamoRecordToDbRecord);
+
+    await knex('providers').insert(records);
   }
 };
 

@@ -9,7 +9,7 @@ function filterProviderFields(providerRecord) {
   const fields = [
     'created_at',
     'encrypted',
-    'global_connection_limit',
+    'globalConnectionLimit',
     'host',
     'id',
     'meta',
@@ -56,6 +56,7 @@ async function update(db, providerId, providerRecord) {
 }
 
 module.exports = {
+  filterProviderFields,
   findById,
   insert,
   update,

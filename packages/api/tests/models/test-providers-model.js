@@ -159,7 +159,7 @@ test('create() inserts a translated provider', async (t) => {
 
   const expected = {
     id: provider.id,
-    global_connection_limit: 10,
+    globalConnectionLimit: 10,
     protocol: provider.protocol,
     host: provider.host,
     created_at: actual.created_at,

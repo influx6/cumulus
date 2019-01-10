@@ -1,9 +1,6 @@
 'use strict';
 
-const camelCase = require('lodash.camelcase');
 const cloneDeep = require('lodash.clonedeep');
-const mapKeys = require('lodash.mapkeys');
-const snakeCase = require('lodash.snakecase');
 
 const { DefaultProvider: S3KeyPairProvider } = require('@cumulus/common/key-pair-provider');
 
@@ -15,12 +12,24 @@ const rulesGateway = require('../db/rules-gateway');
 const { AssociatedRulesError } = require('../lib/errors');
 const { RecordDoesNotExist } = require('../lib/errors');
 
-function providerModelToRecord(providerModel) {
-  return mapKeys(providerModel, (_, key) => snakeCase(key));
+function buildModel(record) {
+  const model = { ...record };
+
+  if (record.meta) {
+    model.meta = JSON.parse(record.meta);
+  }
+
+  return model;
 }
 
-function buildProviderModel(providerRecord) {
-  return mapKeys(providerRecord, (_, key) => camelCase(key));
+function buildRecord(model) {
+  const record = { ...model };
+
+  if (model.record) {
+    record.meta = JSON.stringify(model.record);
+  }
+
+  return record;
 }
 
 const privates = new WeakMap();
@@ -43,7 +52,7 @@ class Provider extends Model {
 
     const providerRecord = await providersGateway.findById(db, id);
 
-    return buildProviderModel(providerRecord);
+    return buildModel(providerRecord);
   }
 
   /**
@@ -78,7 +87,7 @@ class Provider extends Model {
 
     const encryptedModel = await this.encryptItem(item);
 
-    const providerRecord = providerModelToRecord(encryptedModel);
+    const providerRecord = buildRecord(encryptedModel);
 
     await providersGateway.insert(db, providerRecord);
 
@@ -109,7 +118,7 @@ class Provider extends Model {
 
     const encryptedModel = await this.encryptItem(updatedModel);
 
-    const updates = providerModelToRecord(encryptedModel);
+    const updates = buildRecord(encryptedModel);
 
     await providersGateway.update(db, keyObject.id, updates);
 
