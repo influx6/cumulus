@@ -14,10 +14,13 @@ const { AssociatedRulesError } = require('../lib/errors');
 const { RecordDoesNotExist } = require('../lib/errors');
 
 function buildRecord(model) {
-  const record = { ...model };
+  const record = {
+    ...model,
+    meta: undefined
+  };
 
-  if (model.record) {
-    record.meta = JSON.stringify(model.record);
+  if (model.meta) {
+    record.meta = JSON.stringify(model.meta);
   }
 
   return record;
