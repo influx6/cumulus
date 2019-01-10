@@ -1,5 +1,6 @@
 'use strict';
 
+const pMap = require('p-map');
 const uuidv4 = require('uuid/v4');
 
 const { ecs, s3 } = require('@cumulus/common/aws');
@@ -7,24 +8,6 @@ const { ecs, s3 } = require('@cumulus/common/aws');
 const asyncOperationsGateway = require('../db/async-operations-gateway');
 const knex = require('../db/knex');
 const Model = require('./Model');
-
-function asyncOperationModelToRecord(model) {
-  return {
-    id: model.id,
-    output: model.output,
-    task_arn: model.taskArn,
-    status: model.status
-  };
-}
-
-function buildAsyncOperationModel(record) {
-  return {
-    id: record.id,
-    output: record.output,
-    taskArn: record.task_arn,
-    status: record.status
-  };
-}
 
 const privates = new WeakMap();
 
@@ -69,12 +52,10 @@ class AsyncOperation extends Model {
    * @returns {Promise<Object>} - an AsyncOperation record
    * @memberof AsyncOperation
    */
-  async get(id) {
+  get(id) {
     const { db } = privates.get(this);
 
-    const record = await asyncOperationsGateway.findById(db, id);
-
-    return buildAsyncOperationModel(record);
+    return asyncOperationsGateway.findById(db, id);
   }
 
   /**
@@ -98,10 +79,9 @@ class AsyncOperation extends Model {
       this.constructor.recordIsValid(item, this.schema, this.removeAdditional);
     });
 
-    await Promise.all(
-      itemsArray
-        .map(asyncOperationModelToRecord)
-        .map((record) => asyncOperationsGateway.insert(db, record))
+    await pMap(
+      itemsArray,
+      (item) => asyncOperationsGateway.insert(db, item)
     );
 
     const insertedItems = await Promise.all(
@@ -139,9 +119,7 @@ class AsyncOperation extends Model {
       id
     };
 
-    const updatedRecord = asyncOperationModelToRecord(updatedModel);
-
-    await asyncOperationsGateway.update(db, id, updatedRecord);
+    await asyncOperationsGateway.update(db, id, updatedModel);
 
     return this.get(id);
   }

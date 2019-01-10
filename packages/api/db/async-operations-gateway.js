@@ -12,7 +12,7 @@ function filterAsyncOperationFields(asyncOperationRecord) {
     'id',
     'output',
     'status',
-    'task_arn',
+    'taskArn',
     'updated_at'
   ];
 

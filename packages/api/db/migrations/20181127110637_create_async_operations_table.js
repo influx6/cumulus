@@ -34,7 +34,7 @@ exports.up = async (knex) => {
         'status',
         ['RUNNING', 'SUCCEEDED', 'RUNNER_FAILED', 'TASK_FAILED']
       ).notNull();
-      table.string('task_arn').nullable();
+      table.string('taskArn').nullable();
 
       table.bigInteger('created_at').notNullable();
       table.bigInteger('updated_at').notNullable();
