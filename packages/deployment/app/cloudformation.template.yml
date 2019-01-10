@@ -66,10 +66,6 @@ Resources:
           Fn::GetAtt:
             - ScheduleSFLambdaFunction
             - Arn
-        dbIndexerLambdaFunction:
-          Fn::GetAtt:
-            - dbIndexerLambdaFunction
-            - Arn
         messageConsumerLambdaFunction:
           Fn::GetAtt:
             - messageConsumerLambdaFunction

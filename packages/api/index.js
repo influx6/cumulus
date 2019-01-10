@@ -16,7 +16,6 @@ exports.schemas = require('./endpoints/schemas');
 exports.stats = require('./endpoints/stats');
 exports.version = require('./endpoints/version');
 exports.distribution = require('./endpoints/distribution').handleApiGatewayRequest;
-exports.dbIndexer = require('./lambdas/db-indexer');
 exports.reconciliationReports = require('./endpoints/reconciliation-reports');
 
 exports.bootstrap = require('./lambdas/bootstrap').handler;

@@ -59,19 +59,6 @@ log2elasticsearch:
   source: 'node_modules/@cumulus/api/dist/'
   namedLambdaDeadLetterQueue: true
 
-dbIndexer:
-  handler: index.dbIndexer
-  timeout: 300
-  memory: 512
-  source: 'node_modules/@cumulus/api/dist/'
-  useElasticSearch: '{{es.name}}'
-  envs:
-    bucket: '{{system_bucket}}'
-    FilesTable:
-      function: Ref
-      value: FilesTableDynamoDB
-  namedLambdaDeadLetterQueue: true
-
 messageConsumer:
   handler: index.messageConsumer
   timeout: 100

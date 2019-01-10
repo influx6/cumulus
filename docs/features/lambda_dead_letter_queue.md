@@ -34,7 +34,6 @@ These values can be overridden in the `app/config.yml` and will apply to all 'na
 
 The following built-in cumulus lambdas have this feature enabled by default to allow handling of process failures:
 
-* dbIndexer (Updates Elasticsearch based on DynamoDB events)
 * EmsReport (Daily EMS report generation lambda)
 * JobsLambda (writes logs outputs to Elasticsearch)
 * log2elasticsearch (Lambda that exports logs into Elasticsearch)
