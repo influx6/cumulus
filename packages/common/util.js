@@ -57,3 +57,5 @@ exports.uuid = require('uuid/v4');
  * @returns {undefined} undefined
  */
 exports.noop = () => {}; // eslint-disable-line lodash/prefer-noop
+
+exports.isNotNull = (x) => x !== null;

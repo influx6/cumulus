@@ -1,8 +1,9 @@
 'use strict';
 
 const cloneDeep = require('lodash.clonedeep');
-
+const pickBy = require('lodash.pickby');
 const { DefaultProvider: S3KeyPairProvider } = require('@cumulus/common/key-pair-provider');
+const { isNotNull } = require('@cumulus/common/util');
 
 const knex = require('../db/knex');
 const Model = require('./Model');
@@ -40,7 +41,9 @@ class Provider extends Model {
   async get({ id }) {
     const { db } = privates.get(this);
 
-    return providersGateway.findById(db, id);
+    const record = await providersGateway.findById(db, id);
+
+    return pickBy(record, isNotNull);
   }
 
   /**
