@@ -4,22 +4,22 @@ const pick = require('lodash.pick');
 const { RecordDoesNotExist } = require('../lib/errors');
 
 const COLLECTIONS_TABLE = 'collections';
-const COLLECTION_FILE_DEFINITIONS_TABLE = 'collection_file_definitions';
+const COLLECTION_FILES_TABLE = 'collection_files';
 
 function filterCollectionFields(collectionRecord) {
   const fields = [
-    'created_at',
-    'data_type',
-    'duplicate_handling',
-    'granule_id_extraction_regex',
-    'granule_id_validation_regex',
+    'createdAt',
+    'dataType',
+    'duplicateHandling',
+    'granuleIdExtraction',
+    'granuleId',
     'id',
     'meta',
     'name',
     'process',
     'provider_path',
-    'sample_file_name',
-    'updated_at',
+    'sampleFileName',
+    'updatedAt',
     'url_path',
     'version'
   ];
@@ -33,7 +33,7 @@ function filterCollectionFileDefinitionFields(fileDefinitionRecord) {
     'collection_id',
     'id',
     'regex',
-    'sample_file_name',
+    'sampleFileName',
     'url_path'
   ];
 
@@ -62,8 +62,8 @@ async function insert(db, collectionRecord) {
   const [collectionId] = await db(COLLECTIONS_TABLE)
     .insert({
       ...filterCollectionFields(collectionRecord),
-      created_at: now,
-      updated_at: now
+      createdAt: now,
+      updatedAt: now
     });
 
   return collectionId;
@@ -75,24 +75,24 @@ function update(db, collectionId, collectionRecord) {
     .update({
       ...filterCollectionFields(collectionRecord),
       id: undefined,
-      created_at: undefined,
-      updated_at: Date.now()
+      createdAt: undefined,
+      updatedAt: Date.now()
     });
 }
 
 function insertCollectionFileDefinitions(db, records) {
-  return db(COLLECTION_FILE_DEFINITIONS_TABLE)
+  return db(COLLECTION_FILES_TABLE)
     .insert(records.map(filterCollectionFileDefinitionFields));
 }
 
 function deleteFileDefinitions(db, collectionId) {
-  return db(COLLECTION_FILE_DEFINITIONS_TABLE)
+  return db(COLLECTION_FILES_TABLE)
     .where({ collection_id: collectionId })
     .del();
 }
 
 function getFileDefinitions(db, collectionId) {
-  return db(COLLECTION_FILE_DEFINITIONS_TABLE)
+  return db(COLLECTION_FILES_TABLE)
     .where({ collection_id: collectionId });
 }
 

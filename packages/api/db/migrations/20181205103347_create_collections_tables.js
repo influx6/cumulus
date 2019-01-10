@@ -6,20 +6,20 @@ exports.up = async (knex) => {
     (table) => {
       table.increments('id');
 
-      table.string('data_type');
-      table.string('granule_id_extraction_regex').notNullable();
-      table.string('granule_id_validation_regex').notNullable();
+      table.string('dataType');
+      table.string('granuleIdExtraction').notNullable();
+      table.string('granuleId').notNullable();
       table.string('name').notNullable();
       table.string('process');
       table.string('provider_path').defaultTo('/');
-      table.string('sample_file_name').notNullable();
+      table.string('sampleFileName').notNullable();
       table.string('url_path');
       table.string('version').notNullable();
 
-      table.enu('duplicate_handling', ['error', 'skip', 'replace', 'version']).defaultTo('error');
+      table.enu('duplicateHandling', ['error', 'skip', 'replace', 'version']).defaultTo('error');
 
-      table.bigInteger('created_at').notNullable();
-      table.bigInteger('updated_at').notNullable();
+      table.bigInteger('createdAt').notNullable();
+      table.bigInteger('updatedAt').notNullable();
 
       table.json('meta');
 
@@ -28,13 +28,13 @@ exports.up = async (knex) => {
   );
 
   await knex.schema.createTable(
-    'collection_file_definitions',
+    'collection_files',
     (table) => {
       table.increments('id');
 
       table.string('bucket');
       table.string('regex');
-      table.string('sample_file_name');
+      table.string('sampleFileName');
       table.string('url_path');
 
       table.integer('collection_id').unsigned().notNullable();

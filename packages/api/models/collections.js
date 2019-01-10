@@ -10,82 +10,44 @@ const collectionsGateway = require('../db/collections-gateway');
 const rulesGateway = require('../db/rules-gateway');
 const tagsGateway = require('../db/tags-gateway');
 
-function collectionModelToRecord(collectionModel) {
-  const collectionRecord = {
-    data_type: collectionModel.dataType,
-    granule_id_extraction_regex: collectionModel.granuleIdExtraction,
-    granule_id_validation_regex: collectionModel.granuleId,
-    name: collectionModel.name,
-    process: collectionModel.process,
-    provider_path: collectionModel.provider_path,
-    sample_file_name: collectionModel.sampleFileName,
-    url_path: collectionModel.url_path,
-    version: collectionModel.version,
-    duplicate_handling: collectionModel.duplicateHandling,
-    created_at: collectionModel.createdAt,
-    updated_at: collectionModel.updatedAt
+function buildCollectionRecord(model) {
+  const record = {
+    ...model,
+    files: undefined,
+    meta: undefined
   };
 
-  if (collectionModel.meta) {
-    collectionRecord.meta = JSON.stringify(collectionModel.meta);
+  if (model.meta) {
+    record.meta = JSON.stringify(model.meta);
   }
 
-  return collectionRecord;
+  return record;
 }
 
 function buildCollectionModel(collectionRecord, fileDefinitionModels, tags) {
-  const collectionModel = {
-    tags,
-    name: collectionRecord.name,
-    version: collectionRecord.version,
-    dataType: collectionRecord.data_type,
-    process: collectionRecord.process,
-    provider_path: collectionRecord.provider_path,
-    url_path: collectionRecord.url_path,
-    duplicateHandling: collectionRecord.duplciate_handling,
-    granuleId: collectionRecord.granule_id_validation_regex,
-    granuleIdExtraction: collectionRecord.granule_id_extraction_regex,
-    sampleFileName: collectionRecord.sample_file_name,
-    files: fileDefinitionModels,
-    createdAt: collectionRecord.created_at,
-    updatedAt: collectionRecord.updated_at
-  };
-
-  if (collectionRecord.meta) {
-    collectionModel.meta = JSON.parse(collectionRecord.meta);
-  }
-
-  return collectionModel;
-}
-
-function fileDefinitionRecordToModel(record) {
   return {
-    regex: record.regex,
-    sampleFileName: record.sample_file_name,
-    bucket: record.bucket,
-    url_path: record.url_path
+    ...collectionRecord,
+    files: fileDefinitionModels,
+    tags
   };
 }
 
-function buildFileDefinitionRecords(collectionId, collectionModel) {
+function buildCollectionFileDefinitionRecords(collectionId, collectionModel) {
   const files = collectionModel.files || [];
 
   return files.map((file) => ({
-    collection_id: collectionId,
-    regex: file.regex,
-    sample_file_name: file.sampleFileName,
-    bucket: file.bucket,
-    url_path: file.url_path
+    ...file,
+    collection_id: collectionId
   }));
 }
 
 function insertCollectionModel(db, collectionModel) {
   return db.transaction(async (trx) => {
-    const collectionRecord = collectionModelToRecord(collectionModel);
+    const collectionRecord = buildCollectionRecord(collectionModel);
 
     const collectionId = await collectionsGateway.insert(trx, collectionRecord);
 
-    const fileDefinitionRecords = buildFileDefinitionRecords(
+    const fileDefinitionRecords = buildCollectionFileDefinitionRecords(
       collectionId,
       collectionModel
     );
@@ -112,13 +74,13 @@ async function updateCollectionModel(db, collectionModel) {
   return db.transaction(async (trx) => {
     await tagsGateway.setCollectionTags(trx, collectionId, collectionModel.tags);
 
-    const fileRecords = buildFileDefinitionRecords(
+    const fileRecords = buildCollectionFileDefinitionRecords(
       collectionId,
       collectionModel
     );
     await collectionsGateway.setFileDefinitions(trx, collectionId, fileRecords);
 
-    const updates = collectionModelToRecord(collectionModel);
+    const updates = buildCollectionRecord(collectionModel);
     await collectionsGateway.update(trx, collectionId, updates);
   });
 }
@@ -164,11 +126,10 @@ class Collection extends Model {
       db,
       collectionRecord.id
     );
-    const fileDefinitionModels = fileDefinitionRecords.map(fileDefinitionRecordToModel);
 
     const tags = await tagsGateway.getCollectionTags(db, collectionRecord.id);
 
-    return buildCollectionModel(collectionRecord, fileDefinitionModels, tags);
+    return buildCollectionModel(collectionRecord, fileDefinitionRecords, tags);
   }
 
   async exists(name, version) {
