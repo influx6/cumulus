@@ -1,6 +1,8 @@
 'use strict';
 
+const pickBy = require('lodash.pickby');
 const { CollectionConfigStore } = require('@cumulus/common');
+const { isNotNull } = require('@cumulus/common/util');
 
 const { AssociatedRulesError, RecordDoesNotExist } = require('../lib/errors');
 const Model = require('./Model');
@@ -129,7 +131,13 @@ class Collection extends Model {
 
     const tags = await tagsGateway.getCollectionTags(db, collectionRecord.id);
 
-    return buildCollectionModel(collectionRecord, fileDefinitionRecords, tags);
+    const model = buildCollectionModel(
+      collectionRecord,
+      fileDefinitionRecords,
+      tags
+    );
+
+    return pickBy(model, isNotNull);
   }
 
   async exists(name, version) {
