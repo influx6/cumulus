@@ -36,8 +36,8 @@ exports.up = async (knex) => {
       ).notNull();
       table.string('taskArn').nullable();
 
-      table.bigInteger('created_at').notNullable();
-      table.bigInteger('updated_at').notNullable();
+      table.bigInteger('createdAt').notNullable();
+      table.bigInteger('updatedAt').notNullable();
     }
   );
 

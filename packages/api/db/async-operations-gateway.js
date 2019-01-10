@@ -8,12 +8,12 @@ const ASYNC_OPERATIONS_TABLE = 'async_operations';
 
 function filterAsyncOperationFields(asyncOperationRecord) {
   const fields = [
-    'created_at',
+    'createdAt',
     'id',
     'output',
     'status',
     'taskArn',
-    'updated_at'
+    'updatedAt'
   ];
 
   return pick(asyncOperationRecord, fields);
@@ -33,8 +33,8 @@ async function insert(db, asyncOperationRecord) {
   const [asyncOperationId] = await db(ASYNC_OPERATIONS_TABLE)
     .insert({
       ...filterAsyncOperationFields(asyncOperationRecord),
-      created_at: now,
-      updated_at: now
+      createdAt: now,
+      updatedAt: now
     });
 
   return asyncOperationId;
@@ -46,8 +46,8 @@ function update(db, id, asyncOperationRecord) {
     .update({
       ...filterAsyncOperationFields(asyncOperationRecord),
       id: undefined,
-      created_at: undefined,
-      updated_at: Date.now()
+      createdAt: undefined,
+      updatedAt: Date.now()
     });
 }
 
