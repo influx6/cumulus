@@ -8,12 +8,12 @@ const ACCESS_TOKENS_TABLE = 'access_tokens';
 
 function filterAccessTokenFields(record) {
   const fields = [
-    'access_token',
-    'created_at',
-    'expiration_time',
+    'accessToken',
+    'createdAt',
+    'expirationTime',
     'id',
-    'refresh_token',
-    'updated_at',
+    'refreshToken',
+    'updatedAt',
     'username'
   ];
 
@@ -23,7 +23,7 @@ function filterAccessTokenFields(record) {
 async function findByAccessToken(db, accessToken) {
   const record = await db(ACCESS_TOKENS_TABLE)
     .first()
-    .where({ access_token: accessToken });
+    .where({ accessToken });
 
   if (!record) throw new RecordDoesNotExist();
 
@@ -36,15 +36,15 @@ async function insert(db, record) {
   const [id] = await db(ACCESS_TOKENS_TABLE)
     .insert({
       ...filterAccessTokenFields(record),
-      created_at: now,
-      updated_at: now
+      createdAt: now,
+      updatedAt: now
     });
 
   return id;
 }
 
 async function deleteByAccessToken(db, accessToken) {
-  await db(ACCESS_TOKENS_TABLE).where({ access_token: accessToken }).del();
+  await db(ACCESS_TOKENS_TABLE).where({ accessToken }).del();
 }
 
 module.exports = {
