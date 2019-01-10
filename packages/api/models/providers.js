@@ -12,16 +12,6 @@ const rulesGateway = require('../db/rules-gateway');
 const { AssociatedRulesError } = require('../lib/errors');
 const { RecordDoesNotExist } = require('../lib/errors');
 
-function buildModel(record) {
-  const model = { ...record };
-
-  if (record.meta) {
-    model.meta = JSON.parse(record.meta);
-  }
-
-  return model;
-}
-
 function buildRecord(model) {
   const record = { ...model };
 
@@ -50,9 +40,7 @@ class Provider extends Model {
   async get({ id }) {
     const { db } = privates.get(this);
 
-    const providerRecord = await providersGateway.findById(db, id);
-
-    return buildModel(providerRecord);
+    return providersGateway.findById(db, id);
   }
 
   /**
