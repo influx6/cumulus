@@ -3,11 +3,12 @@
 const clonedeep = require('lodash.clonedeep');
 const get = require('lodash.get');
 const path = require('path');
+const pickBy = require('lodash.pickby');
 const pMap = require('p-map');
 const uniqBy = require('lodash.uniqby');
-
 const aws = require('@cumulus/ingest/aws');
 const commonAws = require('@cumulus/common/aws');
+const { isNotNil } = require('@cumulus/common/util');
 const cmrjs = require('@cumulus/cmrjs');
 const { CMR } = require('@cumulus/cmrjs');
 const log = require('@cumulus/common/log');
@@ -26,8 +27,6 @@ const filesGateway = require('../db/files-gateway');
 const granulesGateway = require('../db/granules-gateway');
 const pdrsGateway = require('../db/pdrs-gateway');
 
-const { RecordDoesNotExist } = require('../lib/errors');
-
 const {
   parseException,
   deconstructCollectionId,
@@ -36,48 +35,28 @@ const {
 } = require('../lib/utils');
 const Rule = require('./rules');
 
-function fileRecordToModel(fileRecord) {
-  return {
-    bucket: fileRecord.bucket,
-    filename: fileRecord.filename,
-    filepath: fileRecord.key,
-    fileSize: fileRecord.file_size,
-    name: fileRecord.name
+function fileRecordToModel(record) {
+  const model = {
+    ...record,
+    id: undefined
   };
+
+  return pickBy(model, isNotNil);
 }
 
 function buildFileRecords(granuleDbId, fileModels = []) {
   return fileModels.map((fileModel) => ({
-    granule_id: granuleDbId,
-    file_size: fileModel.fileSize,
-    filename: fileModel.filename,
-    bucket: fileModel.bucket,
-    key: fileModel.filepath,
-    name: fileModel.name
+    ...fileModel,
+    granule_id: granuleDbId
   }));
 }
 
 function granuleModelToRecord(granuleModel, collectionId, pdrId) {
   const record = {
-    beginning_date_time: granuleModel.beginningDateTime,
-    cmr_link: granuleModel.cmrLink,
+    ...granuleModel,
+    error: undefined,
     collection_id: collectionId,
-    created_at: granuleModel.createdAt,
-    duration: granuleModel.duration,
-    ending_date_time: granuleModel.endingDateTime,
-    execution_url: granuleModel.execution,
-    granule_id: granuleModel.granuleId,
-    last_update_date_time: granuleModel.lastUpdateDateTime,
-    pdr_id: pdrId,
-    processing_end_date_time: granuleModel.processingEndDateTime,
-    processing_start_date_time: granuleModel.processingStartDateTime,
-    product_volume: granuleModel.productVolume,
-    production_date_time: granuleModel.productionDateTime,
-    published: granuleModel.published,
-    status: granuleModel.status,
-    time_to_archive: granuleModel.timeToArchive,
-    time_to_preprocess: granuleModel.timeToPreprocess,
-    updated_at: granuleModel.updatedAt
+    pdr_id: pdrId
   };
 
   if (granuleModel.error) {
@@ -96,34 +75,15 @@ function buildGranuleModel(params = {}) {
     fileModels
   } = params;
 
-  const granuleModel = {
+  const model = {
+    ...granuleRecord,
+    id: undefined,
     pdrName,
-    beginningDateTime: granuleRecord.beginning_date_time,
-    cmrLink: granuleRecord.cmr_link,
     collectionId: `${collectionName}___${collectionVersion}`,
-    createdAt: granuleRecord.created_at,
-    duration: granuleRecord.duration,
-    endingDateTime: granuleRecord.ending_date_time,
-    execution: granuleRecord.execution_url,
-    files: fileModels,
-    granuleId: granuleRecord.granule_id,
-    lastUpdatedDateTime: granuleRecord.last_updated_date_time,
-    processingEndDateTime: granuleRecord.processing_end_date_time,
-    processingStartDateTime: granuleRecord.processing_start_date_time,
-    productVolume: granuleRecord.product_volume,
-    productionDateTime: granuleRecord.production_date_time,
-    published: granuleRecord.published,
-    status: granuleRecord.status,
-    timeToArchive: granuleRecord.time_to_archive,
-    timeToPreprocess: granuleRecord.time_to_preprocess,
-    updatedAt: granuleRecord.updated_at
+    files: fileModels
   };
 
-  if (granuleRecord.error) {
-    granuleModel.error = JSON.parse(granuleRecord.error);
-  }
-
-  return granuleModel;
+  return pickBy(model, isNotNil);
 }
 
 async function insertGranuleModel(db, granuleModel) {

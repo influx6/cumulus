@@ -6,22 +6,22 @@ exports.up = async (knex) => {
     (table) => {
       table.bigIncrements('id').primary();
 
-      table.bigInteger('beginning_date_time').unsigned();
-      table.string('cmr_link');
+      table.bigInteger('beginningDateTime').unsigned();
+      table.string('cmrLink');
       table.integer('duration').unsigned();
-      table.bigInteger('ending_date_time').unsigned();
+      table.bigInteger('endingDateTime').unsigned();
       table.json('error');
-      table.string('execution_url');
-      table.string('granule_id').unique().notNullable();
-      table.bigInteger('last_update_date_time').unsigned();
-      table.bigInteger('processing_end_date_time').unsigned();
-      table.bigInteger('processing_start_date_time').unsigned();
-      table.integer('product_volume').unsigned();
-      table.bigInteger('production_date_time').unsigned();
+      table.string('execution');
+      table.string('granuleId').unique().notNullable();
+      table.bigInteger('lastUpdateDateTime').unsigned();
+      table.bigInteger('processingEndDateTime').unsigned();
+      table.bigInteger('processingStartDateTime').unsigned();
+      table.integer('productVolume').unsigned();
+      table.bigInteger('productionDateTime').unsigned();
       table.boolean('published').defaultTo(false);
       table.enu('status', ['running', 'completed', 'failed']).notNullable();
-      table.integer('time_to_archive').unsigned();
-      table.integer('time_to_preprocess').unsigned();
+      table.integer('timeToArchive').unsigned();
+      table.integer('timeToPreprocess').unsigned();
 
       table.integer('collection_id').unsigned().notNullable();
       table.foreign('collection_id').references('collections.id');
@@ -29,8 +29,8 @@ exports.up = async (knex) => {
       table.bigInteger('pdr_id').unsigned();
       table.foreign('pdr_id').references('pdrs.id');
 
-      table.bigInteger('created_at').unsigned().notNullable();
-      table.bigInteger('updated_at').unsigned().notNullable();
+      table.bigInteger('createdAt').unsigned().notNullable();
+      table.bigInteger('updatedAt').unsigned().notNullable();
     }
   );
 
@@ -39,16 +39,16 @@ exports.up = async (knex) => {
     (table) => {
       table.bigIncrements('id').primary();
 
-      table.bigInteger('file_size').unsigned();
+      table.bigInteger('fileSize').unsigned();
       table.string('filename');
       table.string('name');
 
       table.string('bucket').notNullable();
-      table.string('key').notNullable();
-      table.unique(['bucket', 'key']);
+      table.string('filepath').notNullable();
+      table.unique(['bucket', 'filepath']);
 
-      table.bigInteger('created_at').unsigned().notNullable();
-      table.bigInteger('updated_at').unsigned().notNullable();
+      table.bigInteger('createdAt').unsigned().notNullable();
+      table.bigInteger('updatedAt').unsigned().notNullable();
 
       table.bigInteger('granule_id').unsigned().notNullable();
       table.foreign('granule_id').references('granules.id');

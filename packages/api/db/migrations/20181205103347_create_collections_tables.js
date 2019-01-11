@@ -103,6 +103,6 @@ exports.down = async (knex) => {
   await knex.schema.dropTable('rules');
   await knex.schema.dropTable('collection_tags');
   await knex.schema.dropTable('tags');
-  await knex.schema.dropTable('collection_file_definitions');
+  await knex.schema.dropTable('collection_files');
   await knex.schema.dropTable('collections');
 };

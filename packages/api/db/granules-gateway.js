@@ -7,27 +7,26 @@ const GRANULES_TABLE = 'granules';
 
 function filterGranuleFields(granuleRecord) {
   const fields = [
-    'beginning_date_time',
-    'cmr_link',
+    'beginningDateTime',
+    'cmrLink',
     'collection_id',
-    'created_at',
+    'createdAt',
     'duration',
-    'ending_date_time',
+    'endingDateTime',
     'error',
-    'execution_url',
-    'granule_id',
-    'granule_id',
+    'execution',
+    'granuleId',
     'id',
-    'last_update_date_time',
+    'lastUpdateDateTime',
     'pdr_id',
-    'processing_end_date_time',
-    'product_volume',
-    'production_date_time',
+    'processingEndDateTime',
+    'productVolume',
+    'productionDateTime',
     'published',
     'status',
-    'time_to_archive',
-    'time_to_preprocess',
-    'updated_at'
+    'timeToArchive',
+    'timeToPreprocess',
+    'updatedAt'
   ];
 
   return pick(granuleRecord, fields);
@@ -36,7 +35,7 @@ function filterGranuleFields(granuleRecord) {
 async function findByGranuleId(db, granuleId) {
   const record = await db(GRANULES_TABLE)
     .first()
-    .where({ granule_id: granuleId });
+    .where({ granuleId });
 
   if (!record) throw new RecordDoesNotExist();
 
@@ -53,8 +52,8 @@ async function insert(db, granuleRecord) {
   const [id] = await db(GRANULES_TABLE)
     .insert({
       ...filterGranuleFields(granuleRecord),
-      created_at: now,
-      updated_at: now
+      createdAt: now,
+      updatedAt: now
     });
 
   return id;
@@ -66,8 +65,8 @@ function update(db, id, granuleRecord) {
     .update({
       ...filterGranuleFields(granuleRecord),
       id: undefined,
-      created_at: undefined,
-      updated_at: Date.now()
+      createdAt: undefined,
+      updatedAt: Date.now()
     });
 }
 
