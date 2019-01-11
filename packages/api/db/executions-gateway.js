@@ -8,19 +8,19 @@ const EXECUTIONS_TABLE = 'executions';
 function filterExecutionFields(executionRecord) {
   const fields = [
     'arn',
-    'collection_id',
-    'created_at',
+    'collectionId',
+    'createdAt',
     'duration',
     'error',
     'execution',
-    'final_payload',
+    'finalPayload',
     'name',
-    'parent_arn',
-    'original_payload',
+    'parentArn',
+    'originalPayload',
     'status',
     'timestamp',
     'type',
-    'updated_at'
+    'updatedAt'
   ];
 
   return pick(executionRecord, fields);
@@ -28,21 +28,21 @@ function filterExecutionFields(executionRecord) {
 
 function deletePayloadsCompletedBefore(db, ms) {
   return db(EXECUTIONS_TABLE)
-    .where('updated_at', '<=', ms)
+    .where('updatedAt', '<=', ms)
     .where('status', 'completed')
     .update({
-      original_payload: null,
-      final_payload: null
+      originalPayload: null,
+      finalPayload: null
     });
 }
 
 function deletePayloadsNotCompletedBefore(db, ms) {
   return db(EXECUTIONS_TABLE)
-    .where('updated_at', '<=', ms)
+    .where('updatedAt', '<=', ms)
     .whereNot('status', 'completed')
     .update({
-      original_payload: null,
-      final_payload: null
+      originalPayload: null,
+      finalPayload: null
     });
 }
 
@@ -67,9 +67,9 @@ async function insert(db, executionRecord) {
 
   await db(EXECUTIONS_TABLE)
     .insert({
-      created_at: now,
+      createdAt: now,
       ...filterExecutionFields(executionRecord),
-      updated_at: now
+      updatedAt: now
     });
 
   return executionRecord.arn;
@@ -81,8 +81,8 @@ async function update(db, arn, executionRecord) {
     .update({
       ...filterExecutionFields(executionRecord),
       arn: undefined,
-      created_at: undefined,
-      updated_at: Date.now()
+      createdAt: undefined,
+      updatedAt: Date.now()
     });
 }
 

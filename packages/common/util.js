@@ -1,8 +1,9 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
 const os = require('os');
+const path = require('path');
+
 const log = require('./log');
 
 /**
@@ -57,5 +58,9 @@ exports.uuid = require('uuid/v4');
  * @returns {undefined} undefined
  */
 exports.noop = () => {}; // eslint-disable-line lodash/prefer-noop
+
+// eslint-disable-next-line lodash/prefer-is-nil
+exports.isNil = (x) => (x === undefined) || (x === null);
+exports.isNotNil = (x) => !exports.isNil(x);
 
 exports.isNotNull = (x) => x !== null;

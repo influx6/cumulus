@@ -2,6 +2,8 @@
 
 const aws = require('@cumulus/ingest/aws');
 const get = require('lodash.get');
+const pickBy = require('lodash.pickby');
+const { isNotNil } = require('@cumulus/common/util');
 
 const { constructCollectionId } = require('@cumulus/common');
 
@@ -9,48 +11,23 @@ const knex = require('../db/knex');
 const Model = require('./Model');
 const executionsGateway = require('../db/executions-gateway');
 
-const { RecordDoesNotExist } = require('../lib/errors');
 const { parseException } = require('../lib/utils');
 
 function buildExecutionModel(executionRecord) {
-  const executionModel = {
-    arn: executionRecord.arn,
-    createdAt: executionRecord.created_at,
-    collectionId: executionRecord.collection_id,
-    duration: executionRecord.duration / 1000,
-    updatedAt: executionRecord.updated_at,
-    parentArn: executionRecord.parent_arn,
-    timestamp: executionRecord.timestamp,
-    execution: executionRecord.execution,
-    name: executionRecord.name,
-    status: executionRecord.status,
-    type: executionRecord.type,
-    error: executionRecord.error
+  const model = {
+    ...executionRecord,
+    id: undefined
   };
 
-  if (executionRecord.original_payload) {
-    executionModel.originalPayload = executionRecord.original_payload;
-  }
-  if (executionRecord.final_payload) {
-    executionModel.finalPayload = executionRecord.final_payload;
-  }
-
-  return executionModel;
+  return pickBy(model, isNotNil);
 }
 
 function executionModelToRecord(executionModel) {
   const executionRecord = {
-    arn: executionModel.arn,
-    created_at: executionModel.createdAt,
-    collection_id: executionModel.collectionId,
-    duration: Math.round(executionModel.duration * 1000),
-    parent_arn: executionModel.parentArn,
-    timestamp: executionModel.timestamp,
-    updated_at: executionModel.updatedAt,
-    execution: executionModel.execution,
-    name: executionModel.name,
-    status: executionModel.status,
-    type: executionModel.type
+    ...executionModel,
+    error: undefined,
+    finalPayload: undefined,
+    originalPayload: undefined
   };
 
   if (executionModel.error) {
@@ -58,11 +35,11 @@ function executionModelToRecord(executionModel) {
   }
 
   if (executionModel.finalPayload) {
-    executionRecord.final_payload = JSON.stringify(executionModel.finalPayload);
+    executionRecord.finalPayload = JSON.stringify(executionModel.finalPayload);
   }
 
   if (executionModel.originalPayload) {
-    executionRecord.original_payload = JSON.stringify(executionModel.originalPayload);
+    executionRecord.originalPayload = JSON.stringify(executionModel.originalPayload);
   }
 
   return executionRecord;
@@ -87,7 +64,6 @@ class Execution extends Model {
     const { db } = privates.get(this);
 
     const executionRecord = await executionsGateway.findByArn(db, arn);
-
     return buildExecutionModel(executionRecord);
   }
 

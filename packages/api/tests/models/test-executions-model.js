@@ -46,16 +46,14 @@ test.afterEach(async () => {
 });
 
 test.serial('Creating an execution adds a record to the database with matching values', async (t) => {
-  const recordExists = await executionModel.exists({ arn: arn });
-  const record = await executionModel.get({ arn: arn });
+  const recordExists = await executionModel.exists({ arn });
+  const record = await executionModel.get({ arn });
 
   doc.originalPayload = originalPayload;
   delete doc.updatedAt;
   delete record.updatedAt;
   doc.duration = record.duration;
   doc.createdAt = record.createdAt;
-
-
 
   t.true(recordExists);
   t.deepEqual(record, doc);
