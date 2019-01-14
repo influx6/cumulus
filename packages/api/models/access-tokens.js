@@ -23,7 +23,9 @@ class AccessToken extends Model {
 
     const record = await accessTokensGateway.findByAccessToken(db, accessToken);
 
-    return pickBy(record, isNotNull);
+    const model = { ...record, id: undefined };
+
+    return pickBy(model, isNotNull);
   }
 
   async exists({ accessToken }) {
