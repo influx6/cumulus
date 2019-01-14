@@ -9,28 +9,27 @@ function filterPdrFields(record) {
   const fields = [
     'address',
     'collection_id',
-    'created_at',
+    'createdAt',
     'execution',
-    'original_url',
-    'pan_message',
-    'pan_sent',
-    'pdr_name',
+    'originalUrl',
+    'PANmessage',
+    'PANsent',
+    'pdrName',
     'progress',
-    'provider_id',
+    'provider',
     'stats_completed',
     'stats_failed',
     'stats_processing',
     'stats_total',
     'status',
-    'updated_at',
-    'workflow'
+    'updatedAt'
   ];
 
   return pick(record, fields);
 }
 
 async function findByPdrName(db, pdrName) {
-  const record = await db(PDRS_TABLE).first().where({ pdr_name: pdrName });
+  const record = await db(PDRS_TABLE).first().where({ pdrName });
 
   if (!record) throw new RecordDoesNotExist();
 
@@ -43,8 +42,8 @@ async function insert(db, record) {
   const [id] = await db(PDRS_TABLE)
     .insert({
       ...filterPdrFields(record),
-      created_at: now,
-      updated_at: now
+      createdAt: now,
+      updatedAt: now
     });
 
   return id;
@@ -57,8 +56,8 @@ function update(db, pdrName, record) {
       ...filterPdrFields(record),
       id: undefined,
       pdrName: undefined,
-      created_at: undefined,
-      updated_at: Date.now()
+      createdAt: undefined,
+      updatedAt: Date.now()
     });
 }
 
@@ -66,5 +65,5 @@ module.exports = {
   findByPdrName,
   insert,
   update,
-  delete: (db, pdrName) => db(PDRS_TABLE).where({ pdr_name: pdrName }).del()
+  delete: (db, pdrName) => db(PDRS_TABLE).where({ pdrName }).del()
 };
