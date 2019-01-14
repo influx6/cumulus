@@ -38,7 +38,8 @@ const Rule = require('./rules');
 function fileRecordToModel(record) {
   const model = {
     ...record,
-    id: undefined
+    id: undefined,
+    granule_id: undefined
   };
 
   return pickBy(model, isNotNil);
