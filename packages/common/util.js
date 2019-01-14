@@ -62,5 +62,3 @@ exports.noop = () => {}; // eslint-disable-line lodash/prefer-noop
 // eslint-disable-next-line lodash/prefer-is-nil
 exports.isNil = (x) => (x === undefined) || (x === null);
 exports.isNotNil = (x) => !exports.isNil(x);
-
-exports.isNotNull = (x) => x !== null;
