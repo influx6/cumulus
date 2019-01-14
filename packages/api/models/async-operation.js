@@ -4,7 +4,7 @@ const pickBy = require('lodash.pickby');
 const pMap = require('p-map');
 const uuidv4 = require('uuid/v4');
 const { ecs, s3 } = require('@cumulus/common/aws');
-const { isNotNull } = require('@cumulus/common/util');
+const { isNotNil } = require('@cumulus/common/util');
 
 const asyncOperationsGateway = require('../db/async-operations-gateway');
 const knex = require('../db/knex');
@@ -58,7 +58,7 @@ class AsyncOperation extends Model {
 
     const record = await asyncOperationsGateway.findById(db, id);
 
-    return pickBy(record, isNotNull);
+    return pickBy(record, isNotNil);
   }
 
   /**
