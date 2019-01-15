@@ -8,17 +8,17 @@ const RULES_TABLE = 'rules';
 function filterRuleFields(ruleRecord) {
   const fields = [
     'collection_id',
-    'created_at',
+    'createdAt',
     'id',
     'meta',
     'name',
     'provider_id',
     'rule_arn',
-    'rule_log_event_arn',
+    'rule_logEventArn',
     'rule_type',
     'rule_value',
     'state',
-    'updated_at',
+    'updatedAt',
     'workflow'
   ];
 
@@ -60,8 +60,8 @@ async function insert(db, ruleRecord) {
   const [ruleId] = await db(RULES_TABLE)
     .insert({
       ...filterRuleFields(ruleRecord),
-      created_at: now,
-      updated_at: now
+      createdAt: now,
+      updatedAt: now
     });
 
   return ruleId;
@@ -73,8 +73,8 @@ function update(db, ruleId, ruleRecord) {
     .update({
       ...filterRuleFields(ruleRecord),
       id: undefined,
-      created_at: undefined,
-      updated_at: Date.now()
+      createdAt: undefined,
+      updatedAt: Date.now()
     });
 }
 

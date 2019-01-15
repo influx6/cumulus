@@ -50,14 +50,14 @@ exports.up = async (knex) => {
       table.json('meta');
       table.string('name').unique().notNullable();
       table.string('rule_arn');
-      table.string('rule_log_event_arn');
+      table.string('rule_logEventArn');
       table.enu('rule_type', ['onetime', 'scheduled', 'sns', 'kinesis']).notNullable();
       table.string('rule_value');
       table.enu('state', ['ENABLED', 'DISABLED']).notNullable();
       table.string('workflow').notNullable();
 
-      table.bigInteger('created_at').notNullable();
-      table.bigInteger('updated_at').notNullable();
+      table.bigInteger('createdAt').notNullable();
+      table.bigInteger('updatedAt').notNullable();
 
       table.integer('collection_id').unsigned().notNullable();
       table.foreign('collection_id').references('collections.id');

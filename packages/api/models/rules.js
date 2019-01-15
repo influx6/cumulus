@@ -1,32 +1,30 @@
 'use strict';
 
-const get = require('lodash.get');
-const { invoke, Events } = require('@cumulus/ingest/aws');
 const aws = require('@cumulus/common/aws');
-
-const Model = require('./Model');
-const knex = require('../db/knex');
+const get = require('lodash.get');
+const pickBy = require('lodash.pickby');
+const set = require('lodash.set');
+const { invoke, Events } = require('@cumulus/ingest/aws');
+const { isNotNil } = require('@cumulus/common/util');
 
 const collectionsGateway = require('../db/collections-gateway');
+const knex = require('../db/knex');
+const Model = require('./Model');
 const rulesGateway = require('../db/rules-gateway');
 const tagsGateway = require('../db/tags-gateway');
 
-const { RecordDoesNotExist } = require('../lib/errors');
-
 function ruleModelToRecord(ruleModel, collectionId) {
   const ruleRecord = {
-    name: ruleModel.name,
-    state: ruleModel.state,
-    workflow: ruleModel.workflow,
-    created_at: ruleModel.createdAt,
-    updated_at: ruleModel.updatedAt,
+    ...ruleModel,
     collection_id: collectionId,
-    provider_id: ruleModel.provider
+    provider_id: ruleModel.provider,
+    meta: undefined,
+    rule: undefined
   };
 
   if (ruleModel.rule) {
     ruleRecord.rule_arn = ruleModel.rule.arn;
-    ruleRecord.rule_log_event_arn = ruleModel.rule.logEventArn;
+    ruleRecord.rule_logEventArn = ruleModel.rule.logEventArn;
     ruleRecord.rule_type = ruleModel.rule.type;
     ruleRecord.rule_value = ruleModel.rule.value;
   }
@@ -36,38 +34,37 @@ function ruleModelToRecord(ruleModel, collectionId) {
   return ruleRecord;
 }
 
-function buildRuleModel(ruleRecord, collectionRecord) {
+function buildRuleModel(ruleRecord, collectionName, collectionVersion) {
   const ruleModel = {
-    name: ruleRecord.name,
-    rule: {
-      type: ruleRecord.rule_type
-    },
-    state: ruleRecord.state,
-    workflow: ruleRecord.workflow,
-    createdAt: ruleRecord.created_at,
-    updatedAt: ruleRecord.updated_at,
+    ...ruleRecord,
+    id: undefined,
+    collection_id: undefined,
+    provider_id: undefined,
+    rule_arn: undefined,
+    rule_logEventArn: undefined,
+    rule_type: undefined,
+    rule_value: undefined,
     collection: {
-      name: collectionRecord.name,
-      version: collectionRecord.version
+      name: collectionName,
+      version: collectionVersion
     },
     provider: ruleRecord.provider_id
   };
 
   if (ruleRecord.rule_arn) {
-    ruleModel.rule.arn = ruleRecord.rule_arn;
+    set(ruleModel, 'rule.arn', ruleRecord.rule_arn);
   }
-  if (ruleRecord.rule_log_event_arn) {
-    ruleModel.rule.logEventArn = ruleRecord.rule_log_event_arn;
+  if (ruleRecord.rule_logEventArn) {
+    set(ruleModel, 'rule.logEventArn', ruleRecord.rule_logEventArn);
+  }
+  if (ruleRecord.rule_type) {
+    set(ruleModel, 'rule.type', ruleRecord.rule_type);
   }
   if (ruleRecord.rule_value) {
-    ruleModel.rule.value = ruleRecord.rule_value;
+    set(ruleModel, 'rule.value', ruleRecord.rule_value);
   }
 
-  if (ruleRecord.meta) {
-    ruleModel.meta = JSON.parse(ruleRecord.meta);
-  }
-
-  return ruleModel;
+  return pickBy(ruleModel, isNotNil);
 }
 
 async function insertRuleModel(db, ruleModel) {
@@ -137,7 +134,11 @@ class Rule extends Model {
 
     const collectionRecord = await collectionsGateway.findById(db, ruleRecord.collection_id);
 
-    return buildRuleModel(ruleRecord, collectionRecord);
+    return buildRuleModel(
+      ruleRecord,
+      collectionRecord.name,
+      collectionRecord.version
+    );
   }
 
   async getAll() {
@@ -462,7 +463,7 @@ class Rule extends Model {
 
     const eventFieldMapping = {
       arn: 'rule_arn',
-      logEventArn: 'rule_log_event_arn'
+      logEventArn: 'rule_logEventArn'
     };
 
     const kinesisRules = await rulesGateway.find(
