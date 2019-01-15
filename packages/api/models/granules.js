@@ -2,6 +2,7 @@
 
 const clonedeep = require('lodash.clonedeep');
 const get = require('lodash.get');
+const moment = require('moment');
 const path = require('path');
 const pickBy = require('lodash.pickby');
 const pMap = require('p-map');
@@ -23,34 +24,15 @@ const { describeExecution } = require('@cumulus/common/step-functions');
 const knex = require('../db/knex');
 const Model = require('./Model');
 const collectionsGateway = require('../db/collections-gateway');
-const filesGateway = require('../db/files-gateway');
 const granulesGateway = require('../db/granules-gateway');
 const pdrsGateway = require('../db/pdrs-gateway');
 
 const {
   parseException,
   deconstructCollectionId,
-  getGranuleProductVolume,
-  extractDate
+  getGranuleProductVolume
 } = require('../lib/utils');
 const Rule = require('./rules');
-
-function fileRecordToModel(record) {
-  const model = {
-    ...record,
-    id: undefined,
-    granule_id: undefined
-  };
-
-  return pickBy(model, isNotNil);
-}
-
-function buildFileRecords(granuleDbId, fileModels = []) {
-  return fileModels.map((fileModel) => ({
-    ...fileModel,
-    granule_id: granuleDbId
-  }));
-}
 
 function granuleModelToRecord(granuleModel, collectionId, pdrId) {
   const record = {
@@ -64,6 +46,10 @@ function granuleModelToRecord(granuleModel, collectionId, pdrId) {
     record.error = JSON.stringify(granuleModel.error);
   }
 
+  if (granuleModel.files) {
+    record.files = JSON.stringify(granuleModel.files);
+  }
+
   return record;
 }
 
@@ -72,17 +58,37 @@ function buildGranuleModel(params = {}) {
     granuleRecord,
     collectionName,
     collectionVersion,
-    pdrName,
-    fileModels
+    pdrName
   } = params;
 
   const model = {
     ...granuleRecord,
     id: undefined,
     pdrName,
-    collectionId: `${collectionName}___${collectionVersion}`,
-    files: fileModels
+    collectionId: `${collectionName}___${collectionVersion}`
   };
+
+  [
+    'beginningDateTime',
+    'endingDateTime',
+    'lastUpdateDateTime',
+    'processingEndDateTime',
+    'processingStartDateTime',
+    'productionDateTime'
+  ].forEach((f) => {
+    if (granuleRecord[f]) {
+      model[f] = (new Date(granuleRecord[f])).toISOString();
+    }
+  });
+
+  [
+    'timeToArchive',
+    'timeToPreprocess'
+  ].forEach((f) => {
+    if (granuleRecord[f]) {
+      model[f] = granuleRecord[f] / 1000;
+    }
+  });
 
   return pickBy(model, isNotNil);
 }
@@ -115,15 +121,7 @@ async function insertGranuleModel(db, granuleModel) {
     pdrId
   );
 
-  return db.transaction(async (trx) => {
-    const granuleDbId = await granulesGateway.insert(trx, granuleRecord);
-
-    const fileRecords = buildFileRecords(granuleDbId, granuleModel.files);
-
-    await filesGateway.insertMany(trx, fileRecords);
-
-    return granuleDbId;
-  });
+  return granulesGateway.insert(db, granuleRecord);
 }
 
 async function updateGranuleModel(db, updatedModel) {
@@ -154,14 +152,8 @@ async function updateGranuleModel(db, updatedModel) {
     pdrId = pdrRecord.id;
   }
 
-  return db.transaction(async (trx) => {
-    await filesGateway.deleteByGranuleDbId(trx, granuleRecord.id);
-    const fileRecords = buildFileRecords(granuleRecord.id, updatedModel.files);
-    await filesGateway.insertMany(trx, fileRecords);
-
-    const updatedGranuleRecord = granuleModelToRecord(updatedModel, collectionId, pdrId);
-    await granulesGateway.update(trx, granuleRecord.id, updatedGranuleRecord);
-  });
+  const updatedGranuleRecord = granuleModelToRecord(updatedModel, collectionId, pdrId);
+  await granulesGateway.update(db, granuleRecord.id, updatedGranuleRecord);
 }
 
 const privates = new WeakMap();
@@ -189,19 +181,11 @@ class Granule extends Model {
       pdrName = pdrRecord.pdr_name;
     }
 
-    const fileRecords = await filesGateway.findByGranuleId(
-      db,
-      granuleRecord.id
-    );
-
-    const fileModels = fileRecords.map(fileRecordToModel);
-
     const granuleModel = buildGranuleModel({
       granuleRecord,
       collectionName: collectionRecord.name,
       collectionVersion: collectionRecord.version,
-      pdrName,
-      fileModels
+      pdrName
     });
 
     return granuleModel;
@@ -214,7 +198,7 @@ class Granule extends Model {
 
     return pMap(
       granuleRecords,
-      (granuleRecord) => this.get({ granuleId: granuleRecord.granule_id })
+      (granuleRecord) => this.get({ granuleId: granuleRecord.granuleId })
     );
   }
 
@@ -250,10 +234,7 @@ class Granule extends Model {
 
     const granuleRecord = await granulesGateway.findByGranuleId(db, granuleId);
 
-    return db.transaction(async (trx) => {
-      await filesGateway.deleteByGranuleDbId(trx, granuleRecord.id);
-      await granulesGateway.delete(trx, granuleRecord.id);
-    });
+    await granulesGateway.delete(db, granuleRecord.id);
   }
 
   async deleteAll() {
@@ -263,7 +244,7 @@ class Granule extends Model {
 
     return pMap(
       granuleRecords,
-      (granuleRecord) => this.delete({ granuleId: granuleRecord.granule_id })
+      (granuleRecord) => this.delete({ granuleId: granuleRecord.granuleId })
     );
   }
 
@@ -490,10 +471,10 @@ class Granule extends Model {
           createdAt: get(payload, 'cumulus_meta.workflow_start_time'),
           timestamp: Date.now(),
           productVolume: getGranuleProductVolume(g.files),
-          timeToPreprocess: get(payload, 'meta.sync_granule_duration', 0) / 1000,
-          timeToArchive: get(payload, 'meta.post_to_cmr_duration', 0) / 1000,
-          processingStartDateTime: extractDate(payload, 'meta.sync_granule_end_time'),
-          processingEndDateTime: extractDate(payload, 'meta.post_to_cmr_start_time')
+          timeToPreprocess: get(payload, 'meta.sync_granule_duration', 0),
+          timeToArchive: get(payload, 'meta.post_to_cmr_duration', 0),
+          processingStartDateTime: moment(payload.meta.sync_granule_end_time).valueOf(),
+          processingEndDateTime: moment(payload.meta.post_to_cmr_start_time).valueOf()
         };
 
         doc.published = get(g, 'published', false);
@@ -502,13 +483,13 @@ class Granule extends Model {
 
         if (g.cmrLink) {
           const metadata = await cmrjs.getMetadata(g.cmrLink);
-          doc.beginningDateTime = metadata.time_start;
-          doc.endingDateTime = metadata.time_end;
-          doc.lastUpdateDateTime = metadata.updated;
+          doc.beginningDateTime = moment(metadata.time_start).valueOf();
+          doc.endingDateTime = moment(metadata.time_end).valueOf();
+          doc.lastUpdateDateTime = moment(metadata.updated).valueOf();
 
           const fullMetadata = await cmrjs.getFullMetadata(g.cmrLink);
           if (fullMetadata && fullMetadata.DataGranule) {
-            doc.productionDateTime = fullMetadata.DataGranule.ProductionDateTime;
+            doc.productionDateTime = moment(fullMetadata.DataGranule.ProductionDateTime).valueOf();
           }
         }
 

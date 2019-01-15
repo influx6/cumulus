@@ -15,11 +15,13 @@ function filterGranuleFields(granuleRecord) {
     'endingDateTime',
     'error',
     'execution',
+    'files',
     'granuleId',
     'id',
     'lastUpdateDateTime',
     'pdr_id',
     'processingEndDateTime',
+    'processingStartDateTime',
     'productVolume',
     'productionDateTime',
     'published',
@@ -69,10 +71,6 @@ function update(db, id, granuleRecord) {
       updatedAt: Date.now()
     });
 }
-
-// async function deleteByUserName(db, userName) {
-//   await db(GRANULES_TABLE).where({ user_name: userName }).del();
-// }
 
 module.exports = {
   findByGranuleId,

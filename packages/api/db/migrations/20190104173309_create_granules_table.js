@@ -22,6 +22,7 @@ exports.up = async (knex) => {
       table.enu('status', ['running', 'completed', 'failed']).notNullable();
       table.integer('timeToArchive').unsigned();
       table.integer('timeToPreprocess').unsigned();
+      table.json('files');
 
       table.integer('collection_id').unsigned().notNullable();
       table.foreign('collection_id').references('collections.id');
@@ -33,30 +34,8 @@ exports.up = async (knex) => {
       table.bigInteger('updatedAt').unsigned().notNullable();
     }
   );
-
-  await knex.schema.createTable(
-    'files',
-    (table) => {
-      table.bigIncrements('id').primary();
-
-      table.bigInteger('fileSize').unsigned();
-      table.string('filename');
-      table.string('name');
-
-      table.string('bucket').notNullable();
-      table.string('filepath').notNullable();
-      table.unique(['bucket', 'filepath']);
-
-      table.bigInteger('createdAt').unsigned().notNullable();
-      table.bigInteger('updatedAt').unsigned().notNullable();
-
-      table.bigInteger('granule_id').unsigned().notNullable();
-      table.foreign('granule_id').references('granules.id');
-    }
-  );
 };
 
 exports.down = async (knex) => {
-  await knex.schema.dropTable('files');
   await knex.schema.dropTable('granules');
 };
