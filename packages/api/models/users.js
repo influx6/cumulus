@@ -1,7 +1,7 @@
 'use strict';
 
 const pickBy = require('lodash.pickby');
-const { isNotNull } = require('@cumulus/common/util');
+const { isNotNil } = require('@cumulus/common/util');
 
 const knex = require('../db/knex');
 const Model = require('./Model');
@@ -13,7 +13,7 @@ function buildUserModel(record) {
     id: undefined
   };
 
-  return pickBy(model, isNotNull);
+  return pickBy(model, isNotNil);
 }
 
 const privates = new WeakMap();
