@@ -1,25 +1,19 @@
 'use strict';
 
+const pickBy = require('lodash.pickby');
+const { isNotNull } = require('@cumulus/common/util');
+
 const knex = require('../db/knex');
 const Model = require('./Model');
 const usersGateway = require('../db/users-gateway');
 
-const { RecordDoesNotExist } = require('../lib/errors');
-
-function userModelToRecord(userModel) {
-  return {
-    created_at: userModel.createdAt,
-    updated_at: userModel.updatedAt,
-    user_name: userModel.userName
+function buildUserModel(record) {
+  const model = {
+    ...record,
+    id: undefined
   };
-}
 
-function buildUserModel(userRecord) {
-  return {
-    createdAt: userRecord.created_at,
-    updatedAt: userRecord.updated_at,
-    userName: userRecord.user_name
-  };
+  return pickBy(model, isNotNull);
 }
 
 const privates = new WeakMap();
@@ -42,9 +36,7 @@ class User extends Model {
   async create(userModel) {
     const { db } = privates.get(this);
 
-    const userRecord = userModelToRecord(userModel);
-
-    await usersGateway.insert(db, userRecord);
+    await usersGateway.insert(db, userModel);
 
     return this.get({ userName: userModel.userName });
   }

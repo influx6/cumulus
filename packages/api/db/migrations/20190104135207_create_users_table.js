@@ -6,10 +6,10 @@ exports.up = async (knex) => {
     (table) => {
       table.bigIncrements('id').primary();
 
-      table.string('user_name').unique();
+      table.string('userName').unique();
 
-      table.bigInteger('created_at').notNullable();
-      table.bigInteger('updated_at').notNullable();
+      table.bigInteger('createdAt').notNullable();
+      table.bigInteger('updatedAt').notNullable();
     }
   );
 };
