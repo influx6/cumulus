@@ -1,5 +1,6 @@
 'use strict';
 
+const cloneDeep = require('lodash.clonedeep');
 const test = require('ava');
 const sinon = require('sinon');
 const fs = require('fs');
@@ -16,7 +17,12 @@ const {
 const indexer = require('../../../es/indexer');
 const { Search } = require('../../../es/search');
 const models = require('../../../models');
-const { fakeGranuleFactory, fakeCollectionFactory, deleteAliases } = require('../../../lib/testUtils');
+const {
+  deleteAliases,
+  fakeCollectionFactory,
+  fakeGranuleFactory,
+  fakeProviderFactory
+} = require('../../../lib/testUtils');
 const { bootstrapElasticSearch } = require('../../../lambdas/bootstrap');
 const granuleSuccess = require('../../data/granule_success.json');
 const granuleFailure = require('../../data/granule_failed.json');
@@ -25,37 +31,18 @@ const pdrSuccess = require('../../data/pdr_success.json');
 
 const esIndex = randomString();
 process.env.bucket = randomString();
+process.env.internal = process.env.bucket;
 process.env.stackName = randomString();
-const collectionTable = randomString();
-const granuleTable = randomString();
-const pdrTable = randomString();
-const executionTable = randomString();
 process.env.ES_INDEX = esIndex;
 let esClient;
 
 let collectionModel;
-let executionModel;
-let granuleModel;
-let pdrModel;
+let providerModel;
 test.before(async () => {
   await deleteAliases();
 
-  // create the tables
-  process.env.CollectionsTable = collectionTable;
   collectionModel = new models.Collection();
-  await collectionModel.createTable();
-
-  process.env.ExecutionsTable = executionTable;
-  executionModel = new models.Execution();
-  await executionModel.createTable();
-
-  process.env.GranulesTable = granuleTable;
-  granuleModel = new models.Granule();
-  await granuleModel.createTable();
-
-  process.env.PdrsTable = pdrTable;
-  pdrModel = new models.Pdr();
-  await pdrModel.createTable();
+  providerModel = new models.Provider();
 
   // create the elasticsearch index and add mapping
   await bootstrapElasticSearch('fakehost', esIndex);
@@ -86,11 +73,6 @@ test.before(async () => {
 });
 
 test.after.always(async () => {
-  await collectionModel.deleteTable();
-  await executionModel.deleteTable();
-  await granuleModel.deleteTable();
-  await pdrModel.deleteTable();
-
   await esClient.indices.delete({ index: esIndex });
   await aws.recursivelyDeleteS3Bucket(process.env.bucket);
 
@@ -99,16 +81,28 @@ test.after.always(async () => {
 });
 
 test.serial('creating a successful granule record', async (t) => {
+  const payload = cloneDeep(granuleSuccess);
+
+  payload.payload.granules[0].granuleId = randomString();
+
   // Stub out headobject S3 call used in api/models/granules.js,
   // so we don't have to create artifacts
   sinon.stub(aws, 'headObject').resolves({ ContentLength: 12345 });
 
-  const granule = granuleSuccess.payload.granules[0];
-  const collection = granuleSuccess.meta.collection;
-  const records = await indexer.granule(granuleSuccess);
+  const granule = payload.payload.granules[0];
 
-  const collectionId = constructCollectionId(collection.name, collection.version);
+  payload.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(payload.meta.collection);
 
+  const collectionId = constructCollectionId(
+    payload.meta.collection.name,
+    payload.meta.collection.version
+  );
+
+  payload.meta.provider = fakeProviderFactory();
+  await providerModel.create(payload.meta.provider);
+
+  const records = await indexer.granule(payload);
 
   // check the record exists
   const record = records[0];
@@ -130,7 +124,7 @@ test.serial('creating a successful granule record', async (t) => {
   t.is(record.processingEndDateTime, '2018-05-03T17:11:33.007Z');
 
   const { name: deconstructed } = indexer.deconstructCollectionId(record.collectionId);
-  t.is(deconstructed, collection.name);
+  t.is(deconstructed, payload.meta.collection.name);
 });
 
 test.serial('creating multiple successful granule records', async (t) => {
@@ -140,10 +134,18 @@ test.serial('creating multiple successful granule records', async (t) => {
   const granule2 = clone(granule);
   granule2.granuleId = randomString();
   newPayload.payload.granules.push(granule2);
-  const collection = newPayload.meta.collection;
-  const records = await indexer.granule(newPayload);
 
-  const collectionId = constructCollectionId(collection.name, collection.version);
+  newPayload.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(newPayload.meta.collection);
+  const collectionId = constructCollectionId(
+    newPayload.meta.collection.name,
+    newPayload.meta.collection.version
+  );
+
+  newPayload.meta.provider = fakeProviderFactory();
+  await providerModel.create(newPayload.meta.provider);
+
+  const records = await indexer.granule(newPayload);
 
   t.is(records.length, 2);
 
@@ -156,16 +158,27 @@ test.serial('creating multiple successful granule records', async (t) => {
 });
 
 test.serial('creating a failed granule record', async (t) => {
-  const granule = granuleFailure.payload.granules[0];
-  const records = await indexer.granule(granuleFailure);
+  const payload = cloneDeep(granuleFailure);
+
+  payload.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(payload.meta.collection);
+
+  payload.meta.provider = fakeProviderFactory();
+  await providerModel.create(payload.meta.provider);
+
+  payload.payload.granules[0].granuleId = randomString();
+
+  const granule = payload.payload.granules[0];
+
+  const records = await indexer.granule(payload);
 
   const record = records[0];
   t.deepEqual(record.files, granule.files);
   t.is(record.status, 'failed');
   t.is(record.granuleId, granule.granuleId);
   t.is(record.published, false);
-  t.is(record.error.Error, granuleFailure.exception.Error);
-  t.is(record.error.Cause, granuleFailure.exception.Cause);
+  t.is(record.error.Error, payload.exception.Error);
+  t.is(record.error.Cause, payload.exception.Cause);
 });
 
 test.serial('creating a granule record without state_machine info', async (t) => {
@@ -189,12 +202,22 @@ test.serial('creating a granule record in meta section', async (t) => {
   const newPayload = clone(granuleSuccess);
   delete newPayload.payload;
   newPayload.meta.status = 'running';
-  const collection = newPayload.meta.collection;
+
+  newPayload.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(newPayload.meta.collection);
+  const collectionId = constructCollectionId(
+    newPayload.meta.collection.name,
+    newPayload.meta.collection.version
+  );
+
+  newPayload.meta.provider = fakeProviderFactory();
+  await providerModel.create(newPayload.meta.provider);
+
   const granule = newPayload.meta.input_granules[0];
   granule.granuleId = randomString();
 
   const records = await indexer.granule(newPayload);
-  const collectionId = constructCollectionId(collection.name, collection.version);
+
 
   const record = records[0];
   t.deepEqual(record.files, granule.files);
@@ -459,10 +482,18 @@ test.serial('updating a collection record', async (t) => {
 test.serial('creating a failed pdr record', async (t) => {
   const payload = pdrFailure.payload;
   payload.pdr.name = randomString();
-  const collection = pdrFailure.meta.collection;
-  const record = await indexer.pdr(pdrFailure);
 
-  const collectionId = constructCollectionId(collection.name, collection.version);
+  pdrFailure.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(pdrFailure.meta.collection);
+  const collectionId = constructCollectionId(
+    pdrFailure.meta.collection.name,
+    pdrFailure.meta.collection.version
+  );
+
+  pdrFailure.meta.provider = fakeProviderFactory();
+  await providerModel.create(pdrFailure.meta.provider);
+
+  const record = await indexer.pdr(pdrFailure);
 
   t.is(record.status, 'failed');
   t.is(record.collectionId, collectionId);
@@ -480,10 +511,18 @@ test.serial('creating a failed pdr record', async (t) => {
 test.serial('creating a successful pdr record', async (t) => {
   pdrSuccess.meta.pdr.name = randomString();
   const pdr = pdrSuccess.meta.pdr;
-  const collection = pdrSuccess.meta.collection;
-  const record = await indexer.pdr(pdrSuccess);
 
-  const collectionId = constructCollectionId(collection.name, collection.version);
+  pdrSuccess.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(pdrSuccess.meta.collection);
+  const collectionId = constructCollectionId(
+    pdrSuccess.meta.collection.name,
+    pdrSuccess.meta.collection.version
+  );
+
+  pdrSuccess.meta.provider = fakeProviderFactory();
+  await providerModel.create(pdrSuccess.meta.provider);
+
+  const record = await indexer.pdr(pdrSuccess);
 
   t.is(record.status, 'completed');
   t.is(record.collectionId, collectionId);
@@ -503,6 +542,13 @@ test.serial('creating a running pdr record', async (t) => {
   newPayload.meta.pdr.name = randomString();
   newPayload.meta.status = 'running';
   newPayload.payload.running.push('arn');
+
+  newPayload.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(newPayload.meta.collection);
+
+  newPayload.meta.provider = fakeProviderFactory();
+  await providerModel.create(newPayload.meta.provider);
+
   const record = await indexer.pdr(newPayload);
 
   t.is(record.status, 'running');
@@ -637,6 +683,13 @@ test.serial('reingest a granule', async (t) => {
   await aws.s3().putObject({ Bucket: process.env.bucket, Key: key, Body: 'test data' }).promise();
 
   payload.payload.granules[0].granuleId = randomString();
+
+  payload.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(payload.meta.collection);
+
+  payload.meta.provider = fakeProviderFactory();
+  await providerModel.create(payload.meta.provider);
+
   const records = await indexer.granule(payload);
   const record = records[0];
 
@@ -669,6 +722,19 @@ test.serial('pass a sns message to main handler', async (t) => {
   txt = txt.replace('{{random_string}}', randomString());
 
   const event = JSON.parse(JSON.parse(txt.toString()));
+
+  const message = JSON.parse(event.Records[0].Sns.Message);
+
+  message.payload.granules[0].granuleId = randomString();
+
+  message.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(message.meta.collection);
+
+  message.meta.provider = fakeProviderFactory();
+  await providerModel.create(message.meta.provider);
+
+  event.Records[0].Sns.Message = JSON.stringify(message);
+
   const resp = await indexer.handler(event, {}, noop);
 
   t.is(resp.length, 1);
@@ -703,6 +769,17 @@ test.serial('pass a sns message to main handler with parse info', async (t) => {
   txt = txt.replace('{{random_string}}', randomString());
 
   const event = JSON.parse(JSON.parse(txt.toString()));
+
+  const message = JSON.parse(event.Records[0].Sns.Message);
+
+  message.meta.collection = fakeCollectionFactory();
+  await collectionModel.create(message.meta.collection);
+
+  message.meta.provider = fakeProviderFactory();
+  await providerModel.create(message.meta.provider);
+
+  event.Records[0].Sns.Message = JSON.stringify(message);
+
   const resp = await indexer.handler(event, {}, noop);
 
   t.is(resp.length, 1);
