@@ -2,11 +2,10 @@
 
 const test = require('ava');
 const { randomString } = require('@cumulus/common/test-utils');
-const { Manager, Execution } = require('../../models');
+const { Execution } = require('../../models');
 
 let arn;
 let doc;
-let manager;
 let name;
 let executionModel;
 

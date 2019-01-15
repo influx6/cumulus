@@ -12,7 +12,7 @@ exports.up = async (knex) => {
       table.bigIncrements('id').primary();
       table.string('arn').unique().notNull();
       table.string('parentArn');
-      table.float('duration', 3);
+      table.bigInteger('duration');
       table.string('name');
       table.string('execution');
       table.json('error');

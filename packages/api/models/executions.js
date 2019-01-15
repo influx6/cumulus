@@ -16,6 +16,7 @@ const { parseException } = require('../lib/utils');
 function buildExecutionModel(executionRecord) {
   const model = {
     ...executionRecord,
+    duration: executionRecord.duration / 1000,
     id: undefined
   };
 
@@ -25,6 +26,7 @@ function buildExecutionModel(executionRecord) {
 function executionModelToRecord(executionModel) {
   const executionRecord = {
     ...executionModel,
+    duration: Math.round(executionModel.duration * 1000),
     error: undefined,
     finalPayload: undefined,
     originalPayload: undefined

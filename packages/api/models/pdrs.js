@@ -6,6 +6,7 @@ const pvl = require('@cumulus/pvl');
 const aws = require('@cumulus/ingest/aws');
 
 const { constructCollectionId } = require('@cumulus/common');
+const { isNotNil } = require('@cumulus/common/util');
 
 const knex = require('../db/knex');
 const collectionsGateway = require('../db/collections-gateway');
@@ -31,19 +32,19 @@ function buildPdrModel(pdrRecord, collectionRecord) {
     stats: undefined
   };
 
-  if (pdrRecord.stats_completed) {
+  if (isNotNil(pdrRecord.stats_completed)) {
     set(model, 'stats.completed', pdrRecord.stats_completed);
   }
 
-  if (pdrRecord.stats_failed) {
+  if (isNotNil(pdrRecord.stats_failed)) {
     set(model, 'stats.failed', pdrRecord.stats_failed);
   }
 
-  if (pdrRecord.stats_processing) {
+  if (isNotNil(pdrRecord.stats_processing)) {
     set(model, 'stats.processing', pdrRecord.stats_processing);
   }
 
-  if (pdrRecord.stats_total) {
+  if (isNotNil(pdrRecord.stats_total)) {
     set(model, 'stats.total', pdrRecord.stats_total);
   }
 
